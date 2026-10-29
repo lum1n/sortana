@@ -5,7 +5,7 @@
 use crate::Tier;
 
 /// Version of [`RUBRIC`], reported in every `Classification`.
-pub const RUBRIC_VERSION: &str = "2026-10-29.3";
+pub const RUBRIC_VERSION: &str = "2026-10-29.4";
 
 /// Question instructions plus one criterion per tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,9 +86,11 @@ pub const EFFORT: Question = Question {
         ),
         (
             "medium",
-            "Some planning or checking pays off: weighing a couple of options, tracing a \
-             bug through known code, or large but routine work (many files, a port, an \
-             integration, a long analysis) where each step is clear once planned.",
+            "Some planning or checking pays off: a function, query or set of tests with \
+             edge cases to get right, an explanation that needs worked examples, weighing \
+             a couple of options, tracing a bug through known code, or large but routine \
+             work (many files, a port, an integration, a long analysis) where each step \
+             is clear once planned.",
         ),
         (
             "high",
