@@ -17,7 +17,7 @@ ByteDance (Seed), StepFun, Tencent (Hy), Cohere, Amazon (Nova) and Upstage
 | `Hard`     | `claude-opus-5-5`     | `gpt-6.1-sol`   | `gemini-3.8-flash`      |
 | `VeryHard` | `claude-fable-5-1`    | `gpt-6-astra`   | `gemini-4-argon`        |
 
-Each lineup resolves to model ids on any of 170 **hosts**: the maker's own API,
+Each lineup resolves to model ids on any of 171 **hosts**: the maker's own API,
 clouds (Amazon Bedrock, Google Vertex, Azure), gateways (OpenRouter, Vercel,
 Cloudflare AI Gateway, OpenCode Zen, OpenCode Go) and inference providers. Ids
 can also come in [opencode](https://opencode.ai)'s `host/model` format. The
@@ -279,7 +279,9 @@ let up = s2.escalate(from: r2, available: ["opus", "sonnet", "haiku"])  // next 
 modelInfo(id: "openrouter/openai/gpt-6-luna")?.inputCost
 ```
 
-`available` entries match a lineup model by native or canonical id, with
+`lineupForHarness` maps a coding harness to its lineup (`"claude"` and
+`"opencode"` to `anthropic`, `"codex"` to `openai`) and returns `nil` for any
+other. `available` entries match a lineup model by native or canonical id, with
 or without a `host/` prefix, or by a word of the id that names one tier
 (`opus`). A tier with no match takes the nearest matched tier, stronger
 first (`Lineup::model_among`). Effort, needs, model info and capability fit
