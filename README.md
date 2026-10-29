@@ -142,6 +142,34 @@ let c = sortana::Classifier::builder().backend(MyBackend).build()?;
 To reuse a connection pool or point at another endpoint, use
 `JevBackend::with_client(client, key).base_url(url)`.
 
+## Swift (UniFFI)
+
+`crates/sortana-ffi` exposes sortana to Swift (and Kotlin) through
+[UniFFI](https://mozilla.github.io/uniffi-rs/). A `Suggester` classifies a
+task and picks its model from a lineup and, optionally, from the ids the
+app's own model picker lists:
+
+```swift
+let s = try Suggester(apiKey: key, lineup: lineupForHarness(harness: "claude") ?? "anthropic", baseUrl: nil)
+let r = try await s.suggest(task: "Migrate billing to event sourcing", available: ["opus", "sonnet", "haiku"])
+r.tier   // .hard
+r.model  // "opus"
+```
+
+`available` entries match a lineup model by native or canonical id, with
+or without a `host/` prefix, or by a word of the id that names one tier
+(`opus`). A tier with no match takes the nearest matched tier, stronger
+first (`Lineup::model_among`). Backend failures throw `SortanaError.Backend`.
+
+Two ways to ship it:
+
+- **Standalone:** `scripts/build-swift.sh` (macOS) builds `swift/`, a Swift
+  package with `SortanaFFI.xcframework` and the bindings.
+- **Inside another Rust static library** (an app that already links Rust,
+  like Sessh): depend on `crates/sortana-ffi` from that library and generate
+  the bindings with `scripts/swift-bindings.sh OUT_DIR`. Two Rust static
+  libraries in one binary would duplicate std.
+
 ## Features
 
 | Feature    | Default | Adds |

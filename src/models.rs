@@ -75,6 +75,48 @@ impl Lineup {
     pub fn coverage(&self, host: &str) -> [bool; 4] {
         self.canonical.map(|c| host_model_id(host, c).is_some())
     }
+
+    /// The entry of `available` that serves `tier`, for apps whose model
+    /// picker lists its own ids (a CLI's `opus` alias, a full id, or
+    /// opencode's `host/model`). An entry matches a lineup model when, after
+    /// any `host/` prefix, it equals the native or canonical id, or is one of
+    /// the native id's words (`opus` in `claude-opus-5-5`). A tier with no
+    /// match takes the nearest matched tier, preferring stronger ones, as in
+    /// [`ModelMap::preset_on`]. With an empty `available` it is the native id.
+    pub fn model_among<S: AsRef<str>>(&self, tier: Tier, available: &[S]) -> Option<String> {
+        if available.is_empty() {
+            return Some(self.native[tier.index()].to_owned());
+        }
+        let found = |i: usize| {
+            available
+                .iter()
+                .map(AsRef::as_ref)
+                .find(|a| self.serves(i, a))
+                .map(str::to_owned)
+        };
+        let t = tier.index();
+        (t..4).chain((0..t).rev()).find_map(found)
+    }
+
+    /// Whether the picker entry `entry` names the tier-`i` model.
+    fn serves(&self, i: usize, entry: &str) -> bool {
+        let entry = entry.trim().to_ascii_lowercase();
+        let native = self.native[i];
+        let canonical = self.canonical[i];
+        let bare = canonical.rsplit('/').next().unwrap_or(canonical);
+        let last = entry.rsplit('/').next().unwrap_or(&entry);
+        if entry == canonical || last == native || last == bare {
+            return true;
+        }
+        // A bare alias: an alphabetic word of the native id that no other
+        // tier's model shares (`claude` names every tier, `opus` one).
+        entry == last
+            && entry.chars().all(|c| c.is_ascii_alphabetic())
+            && native.split('-').any(|w| w == entry)
+            && (0..4)
+                .filter(|&j| self.native[j] != native)
+                .all(|j| !self.native[j].split('-').any(|w| w == entry))
+    }
 }
 
 impl Host {
@@ -306,6 +348,48 @@ mod tests {
         assert_eq!(
             ModelMap::preset("deepseek").unwrap().get(Tier::Simple),
             "deepseek-flash"
+        );
+    }
+
+    #[test]
+    fn model_among_matches_aliases_ids_and_prefixes() {
+        let a = Lineup::get("anthropic").unwrap();
+        let aliases = ["opus", "sonnet", "haiku"];
+        assert_eq!(
+            a.model_among(Tier::Simple, &aliases).as_deref(),
+            Some("haiku")
+        );
+        assert_eq!(a.model_among(Tier::Hard, &aliases).as_deref(), Some("opus"));
+        // No `fable` alias listed: the nearest tier (weaker, as none is stronger).
+        assert_eq!(
+            a.model_among(Tier::VeryHard, &aliases).as_deref(),
+            Some("opus")
+        );
+        let ids = ["claude-sonnet-5-5", "claude-fable-5-1"];
+        assert_eq!(
+            a.model_among(Tier::Simple, &ids).as_deref(),
+            Some("claude-sonnet-5-5")
+        );
+        assert_eq!(
+            a.model_among(Tier::VeryHard, &ids).as_deref(),
+            Some("claude-fable-5-1")
+        );
+        let prefixed = ["opencode/claude-opus-5-5", "anthropic/claude-haiku-5-5"];
+        assert_eq!(
+            a.model_among(Tier::Medium, &prefixed).as_deref(),
+            Some("opencode/claude-opus-5-5")
+        );
+        // `claude` names every tier, so it is not an alias for one.
+        assert_eq!(a.model_among(Tier::Hard, &["claude", "default"]), None);
+        assert_eq!(
+            a.model_among::<&str>(Tier::Hard, &[]).as_deref(),
+            Some("claude-opus-5-5")
+        );
+        // Repeated models (xAI uses grok-4.3 twice) still resolve.
+        let x = Lineup::get("xai").unwrap();
+        assert_eq!(
+            x.model_among(Tier::Medium, &["grok-4.3"]).as_deref(),
+            Some("grok-4.3")
         );
     }
 
