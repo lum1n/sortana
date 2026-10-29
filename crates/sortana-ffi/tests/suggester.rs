@@ -1,6 +1,9 @@
 //! `Suggester` against a local one-shot HTTP server (no network).
 
-use sortana_ffi::{SortanaError, Suggester, Tier, lineup_for_harness};
+use sortana_ffi::{
+    Decision, Effort, SortanaError, Suggester, SuggesterOptions, TaskContext, Tier,
+    lineup_for_harness, model_info,
+};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -61,6 +64,109 @@ async fn suggests_from_the_apps_models() {
     assert_eq!(r.model.as_deref(), Some("opus"));
     assert!(!r.bumped);
     assert_eq!(r.probabilities.len(), 4);
+}
+
+const HARD_WITH_SIGNALS: &str = r#"{"answers":{
+    "complexity":{"choice":"hard","confidence":0.9,"probabilities":{"medium":0.1,"hard":0.9}},
+    "effort":{"choice":"high","probabilities":{"low":0.0,"medium":0.2,"high":0.8}},
+    "vision":{"choice":"no","probabilities":{"yes":0.1,"no":0.9}},
+    "tools":{"choice":"yes","probabilities":{"yes":0.9,"no":0.1}}}}"#;
+
+#[tokio::test]
+async fn suggestion_carries_effort_needs_and_info() {
+    let url = serve_once("200 OK", HARD_WITH_SIGNALS).await;
+    let s = Suggester::new("k".into(), "anthropic".into(), Some(url)).unwrap();
+    let r = s
+        .suggest(
+            "Find the deadlock".into(),
+            vec!["opus".into(), "sonnet".into()],
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.effort, Some(Effort::High));
+    assert_eq!(r.reasoning_effort.as_deref(), Some("high"));
+    assert!(r.needs.tools && !r.needs.vision);
+    let info = r.model_info.as_ref().unwrap();
+    assert_eq!(info.id, "anthropic/claude-opus-5-5");
+    assert_eq!(r.fits, Some(true));
+    assert_eq!(r.raw_tier, Tier::Hard);
+
+    // Escalating from opus among the app's models: nothing stronger listed.
+    assert_eq!(
+        s.escalate(r.clone(), vec!["opus".into(), "sonnet".into()]),
+        None
+    );
+    // With fable listed, it is the next model up.
+    let up = s.escalate(r, vec!["opus".into(), "fable".into()]).unwrap();
+    assert_eq!(
+        (up.tier, up.model.as_deref()),
+        (Tier::VeryHard, Some("fable"))
+    );
+    assert_eq!(up.reasoning_effort.as_deref(), Some("high"));
+}
+
+#[tokio::test]
+async fn context_and_options_shape_the_suggestion() {
+    let url = serve_once("200 OK", HARD).await;
+    let s = Suggester::with_options(
+        "k".into(),
+        "deepseek".into(),
+        SuggesterOptions {
+            base_url: Some(url),
+            decision: Some(Decision::Confidence),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let ctx = TaskContext {
+        images: 1,
+        ..Default::default()
+    };
+    // The hard tier's DeepSeek model has no vision; medium's does.
+    let r = s
+        .suggest_with("What is wrong in this screenshot?".into(), ctx, vec![])
+        .await
+        .unwrap();
+    assert_eq!(r.tier, Tier::Medium);
+    assert!(r.refit && r.needs.vision);
+    assert_eq!(r.model.as_deref(), Some("deepseek-flash"));
+
+    let url = serve_once("200 OK", HARD).await;
+    let s = Suggester::with_options(
+        "k".into(),
+        "anthropic".into(),
+        SuggesterOptions {
+            base_url: Some(url),
+            max_tier: Some(Tier::Medium),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let r = s.suggest("x".into(), vec![]).await.unwrap();
+    assert_eq!(r.tier, Tier::Medium);
+    assert!(r.clamped);
+    assert_eq!(s.escalate(r, vec![]), None);
+
+    assert!(matches!(
+        Suggester::with_options(
+            "k".into(),
+            "anthropic".into(),
+            SuggesterOptions {
+                min_tier: Some(Tier::Hard),
+                max_tier: Some(Tier::Simple),
+                ..Default::default()
+            },
+        ),
+        Err(SortanaError::Config { .. })
+    ));
+}
+
+#[test]
+fn looks_up_model_info() {
+    let m = model_info("openrouter/openai/gpt-6-luna".into()).unwrap();
+    assert_eq!(m.id, "openai/gpt-6-luna");
+    assert!(m.input_cost.is_some() && m.vision);
+    assert_eq!(model_info("nope".into()), None);
 }
 
 #[tokio::test]

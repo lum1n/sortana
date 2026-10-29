@@ -51,7 +51,12 @@ async fn serve_once(
 fn request(text: &str) -> ClassifyRequest {
     ClassifyRequest {
         text: text.into(),
+        context: None,
         rubric: &sortana::rubric::RUBRIC,
+        ask: sortana::Ask {
+            effort: true,
+            needs: true,
+        },
     }
 }
 

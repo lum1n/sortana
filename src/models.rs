@@ -9,8 +9,8 @@
 
 use std::fmt;
 
-use crate::Tier;
-use crate::catalog::{HOST_MODELS, HOSTS, LINEUPS};
+use crate::catalog::{HOST_MODELS, HOSTS, LINEUPS, MODELS};
+use crate::{Effort, Needs, Tier};
 
 pub use crate::catalog::CATALOG_DATE;
 
@@ -31,6 +31,107 @@ pub struct Lineup {
 pub struct Host {
     pub id: &'static str,
     pub name: &'static str,
+}
+
+/// What models.dev knows about a lineup model: limits, list prices and
+/// capabilities. Prices are the maker's own, in USD per million tokens.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct ModelInfo {
+    /// models.dev canonical id, e.g. `"anthropic/claude-opus-5-5"`.
+    pub id: &'static str,
+    pub name: &'static str,
+    /// Context window in tokens; `0` when unknown.
+    pub context: u32,
+    /// Largest prompt in tokens (the context window unless the model caps input lower).
+    pub max_input: u32,
+    pub max_output: u32,
+    pub input_cost: Option<f32>,
+    pub output_cost: Option<f32>,
+    /// Accepts image input.
+    pub vision: bool,
+    /// Accepts PDF input.
+    pub pdf: bool,
+    pub tools: bool,
+    pub reasoning: bool,
+    /// Values the model's reasoning effort setting takes, e.g. `["low", "medium", "high"]`.
+    pub efforts: &'static [&'static str],
+}
+
+/// Reasoning effort levels as models.dev names them, weakest first.
+const EFFORT_SCALE: [&str; 7] = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+impl ModelInfo {
+    /// Every lineup model, sorted by canonical id.
+    pub fn all() -> &'static [ModelInfo] {
+        MODELS
+    }
+
+    /// Look up by canonical id.
+    pub fn get(canonical: &str) -> Option<&'static ModelInfo> {
+        MODELS
+            .binary_search_by(|m| m.id.cmp(canonical))
+            .ok()
+            .map(|i| &MODELS[i])
+    }
+
+    /// Look up by any id a lineup model goes by: canonical, a host's id, the
+    /// same in opencode's `host/model` form, or the maker's native id.
+    pub fn find(id: &str) -> Option<&'static ModelInfo> {
+        let id = id.trim();
+        if let Some(m) = Self::get(id) {
+            return Some(m);
+        }
+        let prefixed = || {
+            let (host, rest) = id.split_once('/')?;
+            HOST_MODELS
+                .iter()
+                .find(|(h, _, m)| *h == host && *m == rest)
+                .map(|r| r.1)
+        };
+        let bare = || HOST_MODELS.iter().find(|r| r.2 == id).map(|r| r.1);
+        let native = || {
+            LINEUPS.iter().find_map(|l| {
+                l.native
+                    .iter()
+                    .position(|n| *n == id)
+                    .map(|i| l.canonical[i])
+            })
+        };
+        Self::get(prefixed().or_else(bare).or_else(native)?)
+    }
+
+    /// Blended list price per million tokens, weighting input 3:1 over
+    /// output as agent and chat traffic does. `None` without both prices.
+    pub fn price(&self) -> Option<f32> {
+        Some((3.0 * self.input_cost? + self.output_cost?) / 4.0)
+    }
+
+    /// Whether the model meets `needs`: image input, tool calling and a
+    /// prompt of `needs.context_tokens`.
+    pub fn meets(&self, needs: &Needs) -> bool {
+        (!needs.vision || self.vision)
+            && (!needs.tools || self.tools)
+            && needs
+                .context_tokens
+                .is_none_or(|t| self.max_input == 0 || t <= u64::from(self.max_input))
+    }
+
+    /// The value of this model's reasoning effort setting closest to
+    /// `effort` (ties go to the stronger value). `None` when the model has
+    /// no effort setting.
+    pub fn effort_value(&self, effort: Effort) -> Option<&'static str> {
+        if !self.reasoning {
+            return None;
+        }
+        let rank = |v: &str| EFFORT_SCALE.iter().position(|s| *s == v);
+        let want = rank(effort.as_str())? as isize;
+        self.efforts
+            .iter()
+            .filter_map(|v| Some((rank(v)? as isize, *v)))
+            .min_by_key(|(r, _)| ((r - want).abs(), -r))
+            .map(|(_, v)| v)
+    }
 }
 
 /// Short names accepted by [`Lineup::get`] besides the ids.
@@ -71,6 +172,11 @@ impl Lineup {
         LINEUPS.iter().find(|l| l.id == id)
     }
 
+    /// Metadata of the tier's model.
+    pub fn info(&self, tier: Tier) -> Option<&'static ModelInfo> {
+        ModelInfo::get(self.canonical[tier.index()])
+    }
+
     /// Which tiers' models `host` serves.
     pub fn coverage(&self, host: &str) -> [bool; 4] {
         self.canonical.map(|c| host_model_id(host, c).is_some())
@@ -87,15 +193,35 @@ impl Lineup {
         if available.is_empty() {
             return Some(self.native[tier.index()].to_owned());
         }
-        let found = |i: usize| {
+        self.entry_among(tier.index(), available).map(|(_, e)| e)
+    }
+
+    /// [`model_among`](Self::model_among) for every tier, as a [`ModelMap`]
+    /// whose infos are those of the lineup models the entries matched.
+    /// `None` when no entry matches any tier.
+    pub fn models_among<S: AsRef<str>>(&self, available: &[S]) -> Option<ModelMap> {
+        if available.is_empty() {
+            return Some(ModelMap::from_lineup(self));
+        }
+        let mut ids: [String; 4] = Default::default();
+        let mut infos = [None; 4];
+        for t in 0..4 {
+            let (j, entry) = self.entry_among(t, available)?;
+            ids[t] = entry;
+            infos[t] = ModelInfo::get(self.canonical[j]);
+        }
+        Some(ModelMap { ids, infos })
+    }
+
+    /// The entry of `available` for tier `t` and the lineup tier it names.
+    fn entry_among<S: AsRef<str>>(&self, t: usize, available: &[S]) -> Option<(usize, String)> {
+        (t..4).chain((0..t).rev()).find_map(|i| {
             available
                 .iter()
                 .map(AsRef::as_ref)
                 .find(|a| self.serves(i, a))
-                .map(str::to_owned)
-        };
-        let t = tier.index();
-        (t..4).chain((0..t).rev()).find_map(found)
+                .map(|a| (i, a.to_owned()))
+        })
     }
 
     /// Whether the picker entry `entry` names the tier-`i` model.
@@ -156,24 +282,40 @@ pub enum PresetError {
 /// Maps tiers to model ids. Build one from a [`Lineup`] with
 /// [`preset`](Self::preset) / [`preset_on`](Self::preset_on) /
 /// [`opencode`](Self::opencode), or list ids yourself with [`new`](Self::new).
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Each tier also carries the [`ModelInfo`] of its model when it is a lineup
+/// model, which the classifier uses to check capabilities and prices. Two
+/// maps are equal when their ids are; with `serde` a map is its four ids.
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ModelMap([String; 4]);
+#[cfg_attr(feature = "serde", serde(from = "[String; 4]", into = "[String; 4]"))]
+pub struct ModelMap {
+    ids: [String; 4],
+    infos: [Option<&'static ModelInfo>; 4],
+}
 
 impl ModelMap {
+    /// Infos are looked up with [`ModelInfo::find`].
     pub fn new(
         simple: impl Into<String>,
         medium: impl Into<String>,
         hard: impl Into<String>,
         very_hard: impl Into<String>,
     ) -> Self {
-        ModelMap([simple.into(), medium.into(), hard.into(), very_hard.into()])
+        [simple.into(), medium.into(), hard.into(), very_hard.into()].into()
+    }
+
+    fn from_lineup(l: &Lineup) -> Self {
+        ModelMap {
+            ids: l.native.map(str::to_owned),
+            infos: Tier::ALL.map(|t| l.info(t)),
+        }
     }
 
     /// A lineup with ids for the maker's own API.
     pub fn preset(lineup: &str) -> Result<Self, PresetError> {
         let l = Lineup::get(lineup).ok_or_else(|| PresetError::UnknownLineup(lineup.to_owned()))?;
-        Ok(ModelMap(l.native.map(str::to_owned)))
+        Ok(Self::from_lineup(l))
     }
 
     /// A lineup with ids for `host`. A tier whose model the host lacks gets the
@@ -183,17 +325,21 @@ impl ModelMap {
         let l = Lineup::get(lineup).ok_or_else(|| PresetError::UnknownLineup(lineup.to_owned()))?;
         let h = Host::get(host).ok_or_else(|| PresetError::UnknownHost(host.to_owned()))?;
         let ids = l.canonical.map(|c| host_model_id(h.id, c));
-        let pick =
-            |tier: usize| -> Option<&str> { (tier..4).chain((0..tier).rev()).find_map(|i| ids[i]) };
+        let pick = |tier: usize| (tier..4).chain((0..tier).rev()).find(|&i| ids[i].is_some());
         let not_served = || PresetError::NotServed {
             lineup: l.id.to_owned(),
             host: h.id.to_owned(),
         };
-        let mut out: [String; 4] = Default::default();
-        for (i, slot) in out.iter_mut().enumerate() {
-            *slot = pick(i).ok_or_else(not_served)?.to_owned();
+        let mut out = ModelMap {
+            ids: Default::default(),
+            infos: [None; 4],
+        };
+        for t in 0..4 {
+            let j = pick(t).ok_or_else(not_served)?;
+            out.ids[t] = ids[j].unwrap_or_default().to_owned();
+            out.infos[t] = l.info(Tier::ALL[j]);
         }
-        Ok(ModelMap(out))
+        Ok(out)
     }
 
     /// Like [`preset_on`](Self::preset_on), with ids in opencode's
@@ -218,18 +364,57 @@ impl ModelMap {
 
     /// Prepend `prefix` to every id.
     pub fn prefixed(self, prefix: &str) -> Self {
-        ModelMap(self.0.map(|id| format!("{prefix}{id}")))
+        ModelMap {
+            ids: self.ids.map(|id| format!("{prefix}{id}")),
+            infos: self.infos,
+        }
     }
 
+    /// Replace a tier's model. Its info is looked up with [`ModelInfo::find`];
+    /// use [`with_info`](Self::with_info) to set it yourself.
     pub fn with(mut self, tier: Tier, model: impl Into<String>) -> Self {
-        self.0[tier.index()] = model.into();
+        let model = model.into();
+        self.infos[tier.index()] = ModelInfo::find(&model);
+        self.ids[tier.index()] = model;
+        self
+    }
+
+    /// Set a tier's model info, e.g. a fine-tune's base model.
+    pub fn with_info(mut self, tier: Tier, info: Option<&'static ModelInfo>) -> Self {
+        self.infos[tier.index()] = info;
         self
     }
 
     pub fn get(&self, tier: Tier) -> &str {
-        &self.0[tier.index()]
+        &self.ids[tier.index()]
+    }
+
+    /// Metadata of the tier's model, when it is a known lineup model.
+    pub fn info(&self, tier: Tier) -> Option<&'static ModelInfo> {
+        self.infos[tier.index()]
     }
 }
+
+impl From<[String; 4]> for ModelMap {
+    fn from(ids: [String; 4]) -> Self {
+        let infos = [0, 1, 2, 3].map(|i| ModelInfo::find(&ids[i]));
+        ModelMap { ids, infos }
+    }
+}
+
+impl From<ModelMap> for [String; 4] {
+    fn from(m: ModelMap) -> Self {
+        m.ids
+    }
+}
+
+impl PartialEq for ModelMap {
+    fn eq(&self, other: &Self) -> bool {
+        self.ids == other.ids
+    }
+}
+
+impl Eq for ModelMap {}
 
 /// The Anthropic lineup.
 impl Default for ModelMap {
@@ -391,6 +576,82 @@ mod tests {
             x.model_among(Tier::Medium, &["grok-4.3"]).as_deref(),
             Some("grok-4.3")
         );
+    }
+
+    #[test]
+    fn model_infos() {
+        assert!(MODELS.windows(2).all(|w| w[0].id < w[1].id));
+        for l in LINEUPS {
+            for t in Tier::ALL {
+                assert!(l.info(t).is_some(), "{} {t}", l.id);
+            }
+        }
+        let opus = ModelInfo::get("anthropic/claude-opus-5-5").unwrap();
+        for id in [
+            "claude-opus-5-5",
+            "opencode/claude-opus-5-5",
+            "anthropic.claude-opus-5-5",
+            "amazon-bedrock/anthropic.claude-opus-5-5",
+        ] {
+            assert_eq!(ModelInfo::find(id), Some(opus), "{id}");
+        }
+        assert_eq!(ModelInfo::find("ft:my-model"), None);
+        assert_eq!(opus.price(), Some((3.0 * 4.0 + 20.0) / 4.0));
+        // Bedrock ids still carry the lineup model's info.
+        let m = ModelMap::preset_on("anthropic", "amazon-bedrock").unwrap();
+        assert_eq!(m.info(Tier::Hard), Some(opus));
+        assert_eq!(
+            ModelMap::anthropic().with(Tier::Hard, "x").info(Tier::Hard),
+            None
+        );
+    }
+
+    #[test]
+    fn effort_values_round_to_the_nearest_setting() {
+        let info = |id| ModelInfo::get(id).unwrap();
+        let opus = info("anthropic/claude-opus-5-5");
+        assert_eq!(opus.effort_value(Effort::Medium), Some("medium"));
+        // Mistral Small only has `none` and `high`: low is equally far from both.
+        let small = info("mistral/mistral-small-2603");
+        assert_eq!(small.effort_value(Effort::Low), Some("high"));
+        // DeepSeek has low/high/max: medium rounds up.
+        let ds = info("deepseek/deepseek-v4-pro");
+        assert_eq!(ds.effort_value(Effort::Medium), Some("high"));
+        assert_eq!(
+            info("cohere/command-r7b-12-2024").effort_value(Effort::High),
+            None
+        );
+    }
+
+    #[test]
+    fn needs_check_capabilities() {
+        let ds = ModelInfo::get("deepseek/deepseek-v4-pro").unwrap();
+        assert!(ds.meets(&Needs::default()));
+        assert!(!ds.meets(&Needs {
+            vision: true,
+            ..Needs::default()
+        }));
+        let glm = ModelInfo::get("zhipuai/glm-5.1").unwrap();
+        assert!(glm.meets(&Needs {
+            context_tokens: Some(200_000),
+            ..Needs::default()
+        }));
+        assert!(!glm.meets(&Needs {
+            context_tokens: Some(200_001),
+            ..Needs::default()
+        }));
+    }
+
+    #[test]
+    fn models_among_carries_matched_infos() {
+        let a = Lineup::get("anthropic").unwrap();
+        let m = a.models_among(&["opus", "haiku"]).unwrap();
+        assert_eq!(m.get(Tier::Medium), "opus");
+        assert_eq!(m.info(Tier::Medium), a.info(Tier::Hard));
+        assert_eq!(m.info(Tier::Simple), a.info(Tier::Simple));
+        assert_eq!(m.get(Tier::VeryHard), "opus");
+        assert!(a.models_among(&["default"]).is_none());
+        assert_eq!(a.models_among::<&str>(&[]).unwrap(), ModelMap::anthropic());
     }
 
     #[test]

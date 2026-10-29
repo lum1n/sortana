@@ -1,6 +1,6 @@
 //! Synchronous wrapper around [`crate::Classifier`].
 
-use crate::{Classification, Error, Result};
+use crate::{Classification, Context, Error, ModelMap, Result};
 
 /// Runs a [`crate::Classifier`] on its own single-threaded Tokio runtime.
 ///
@@ -23,6 +23,19 @@ impl Classifier {
 
     pub fn classify(&self, text: &str) -> Result<Classification> {
         self.rt.block_on(self.inner.classify(text))
+    }
+
+    pub fn classify_with(&self, text: &str, ctx: &Context) -> Result<Classification> {
+        self.rt.block_on(self.inner.classify_with(text, ctx))
+    }
+
+    pub fn classify_for(
+        &self,
+        text: &str,
+        ctx: &Context,
+        models: &ModelMap,
+    ) -> Result<Classification> {
+        self.rt.block_on(self.inner.classify_for(text, ctx, models))
     }
 
     pub fn classify_many<I, S>(&self, texts: I) -> Vec<Result<Classification>>

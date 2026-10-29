@@ -27,9 +27,12 @@ for what a host serves.
 
 Classification is remote, with no heuristics and no local model. The default
 backend is [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev),
-TypeSafe AI's "System One" model. Each task becomes one Jev request with a single
-Choice question. Its four criteria are the tier definitions in
-[`src/rubric.rs`](src/rubric.rs). Jev returns a calibrated probability per tier.
+TypeSafe AI's "System One" model. Each task becomes one Jev request. Its main
+Choice question has four criteria, the tier definitions in
+[`src/rubric.rs`](src/rubric.rs), and Jev returns a calibrated probability per
+tier. The same request also asks how much reasoning effort the task needs and
+whether it needs vision or tools. Jev's output is free, so the extra answers
+cost almost nothing.
 
 > Jev is in early access and needs an API key (`TYPESAFE_API_KEY`).
 
@@ -48,6 +51,10 @@ r.tier;          // Tier::Hard
 r.model;         // "gpt-6.1-sol": the model to send the task to
 r.probabilities; // [f32; 4], indexed like Tier::ALL
 r.confidence;    // Jev's confidence
+r.effort;        // Some(Effort::High): how much the model should think
+r.reasoning_effort; // Some("high"): that effort as the model's own setting
+r.needs;         // Needs { vision, tools, context_tokens }
+r.info;          // Some(&ModelInfo): limits, prices, capabilities of r.model
 r.degraded;      // true if the backend failed and the fallback tier was used
 ```
 
@@ -87,9 +94,101 @@ several places: `ModelMap::preset_on("google", "openrouter")?.get(r.tier)`.
 The catalogue is a snapshot (see `sortana::CATALOG_DATE`). Model makers and
 hosts rename and retire models often. To refresh it, edit
 [`presets/lineups.toml`](presets/lineups.toml) if needed and run
-`python3 scripts/update-catalog.py`. The script fails if a lineup names a
+`python3 scripts/update-catalog.py`. It also refreshes each lineup model's
+limits, prices and capabilities. The script fails if a lineup names a
 model that models.dev no longer lists. It skips deprecated models and free
 promotional variants.
+
+### Effort, needs and context
+
+Pass what the app knows about a task with `classify_with`. The context's
+counts go to Jev as a `Context:` section after the task.
+
+```rust
+use sortana::Context;
+
+let ctx = Context {
+    files: Some(40),              // files attached or in scope
+    images: 1,                    // any image: the model must accept images
+    prompt_tokens: Some(180_000), // the model's input limit must fit this
+    turns: Some(12),
+    tools: Some(true),            // tools will be offered; overrides Jev's guess
+    notes: Some("Rust monorepo, 400k lines".into()),
+};
+let r = c.classify_with("Why does the chart in this screenshot dip?", &ctx).await?;
+```
+
+`r.needs` combines the context with Jev's vision and tools answers. When the
+tier's model can't meet the needs (no image input, a context window that is
+too small, no tool calling), the tier moves to the nearest one whose model
+can, trying stronger tiers first, and `r.refit` is set. `r.fits` is
+`Some(false)` when no model within the tier limits fits, and `None` when the
+model is not one sortana has metadata for.
+
+`r.effort` (low, medium, high) is separate from the tier: a short proof can
+need a strong model *and* a lot of thinking, while a big refactor might need a
+strong model and little thinking. `r.reasoning_effort` is that level as a value
+the model's effort setting takes, from models.dev (for example `"high"` for
+Claude, or DeepSeek's `"high"` for medium, since DeepSeek only has
+low/high/max). Pass it as `reasoning_effort` or the provider's equivalent.
+
+Turn the extra questions off with `.ask_effort(false)` / `.ask_needs(false)`.
+A custom `Backend` that only implements `classify` gives no extra answers, and
+`needs` then comes from the context alone.
+
+### Tier limits and escalation
+
+```rust
+let c = Classifier::builder()
+    .jev(key)
+    .min_tier(Tier::Medium)   // never the smallest model
+    .max_tier(Tier::Hard)     // never the most expensive one
+    .build()?;
+
+let r = c.classify(task).await?;   // r.clamped when a limit moved the tier
+// The model failed, or the user asked for a better answer:
+if let Some(up) = c.escalate(&r) { /* up.tier, up.model */ }
+```
+
+`escalate` returns the lowest tier above the current one, up to `max_tier`,
+whose model differs from the current model. Lineups that repeat a model skip
+the repeat. Models that meet `r.needs` come first. It returns `None` at the top.
+The fallback tier of a degraded result is clamped too.
+
+### Routing by cost
+
+`Decision::Cost` picks the tier with the lowest expected cost instead of the
+most likely tier. It uses Jev's calibrated probabilities and the models' list
+prices from models.dev:
+
+```rust
+use sortana::Decision;
+
+let c = Classifier::builder().jev(key).decision(Decision::COST).build()?;
+let c = Classifier::builder().jev(key).decision(Decision::Cost { miss_penalty: 3.0 }).build()?;
+```
+
+Choosing a tier costs its model's blended price (input weighted 3:1 over
+output). If the task turns out to need a stronger model, it is re-run there at
+that model's price times `1 + miss_penalty`. The penalty stands for the time
+lost and the bad answer. Tasks harder than `max_tier` count as needing
+`max_tier`. With `Decision::COST` (`miss_penalty = 1`) and Anthropic's prices,
+a task that is 60% simple, 30% medium and 10% hard goes to Haiku. Raise the
+penalty when wrong answers are expensive. When a tier's model has no known
+price (custom ids), it falls back to the confidence rule. Only tiers within
+the limits whose models meet the needs are considered.
+
+### Model metadata
+
+`ModelInfo` holds models.dev's data for every lineup model: context window,
+input and output limits, prices, image and PDF input, tool calling, and the
+values of its reasoning effort setting. `ModelInfo::find` accepts any id a
+lineup model goes by (canonical, native, a host's id, `host/id`). Every
+`ModelMap` keeps the info of each tier's model: presets set it directly,
+`ModelMap::new` and `.with()` look it up. Use `.with_info()` to give a
+fine-tune its base model's info. `Classifier::classify_for(text, &ctx,
+&models)` routes one call to another map, for example
+`lineup.models_among(&app_ids)`, which also carries the matched models' infos.
 
 `classify_many` classifies a batch concurrently and keeps input order. With
 feature `blocking`, `sortana::blocking::Classifier` wraps the async classifier
@@ -104,7 +203,10 @@ for sync code.
 3. The tier is the argmax of the probabilities. If Jev's confidence is below
    `min_confidence` (default 0.5) and `bias_up` is on (default), the tier moves up
    one. Under-powering a hard task costs more than over-powering an easy one.
-4. Timeouts, transport errors, HTTP 408/429/5xx and backend errors marked
+   With `Decision::Cost`, the tier is the cheapest expected one instead.
+4. The tier is clamped to `min_tier..=max_tier`, then moved to the nearest tier
+   whose model meets the task's needs, trying stronger tiers first.
+5. Timeouts, transport errors, HTTP 408/429/5xx and backend errors marked
    retryable are retried `retries` times (default 2), with exponential backoff.
    If every attempt fails, `on_error` decides the result. The default,
    `OnError::Fallback(Tier::Medium)`, returns `Medium` with `degraded = true`.
@@ -119,7 +221,11 @@ The `Backend` trait is the embedding seam. Use it to bring your own HTTP client,
 or to classify with something other than Jev. That choice is independent of the
 `Provider` you route to: you could classify with an OpenAI model and route to
 Anthropic models, or the reverse. The classifier still handles timeouts,
-retries, fallback, caching and the final decision.
+retries, fallback, caching and the final decision. To support the effort,
+vision and tools questions too, override `Backend::assess` and return an
+`Assessment`. The questions are in `sortana::rubric` (`EFFORT`, `VISION`,
+`TOOLS`), and `req.ask` says which ones were asked. `req.state()` is the task
+followed by its context section.
 
 ```rust
 use sortana::{Backend, BoxFuture, ClassifyRequest, Result, TierProbs};
@@ -152,14 +258,31 @@ app's own model picker lists:
 ```swift
 let s = try Suggester(apiKey: key, lineup: lineupForHarness(harness: "claude") ?? "anthropic", baseUrl: nil)
 let r = try await s.suggest(task: "Migrate billing to event sourcing", available: ["opus", "sonnet", "haiku"])
-r.tier   // .hard
-r.model  // "opus"
+r.tier            // .hard
+r.model           // "opus"
+r.effort          // .high
+r.reasoningEffort // "high"
+r.needs           // Needs(vision: false, tools: true, contextTokens: nil)
+r.modelInfo       // ModelInfo(id: "anthropic/claude-opus-5-5", context: 1000000, inputCost: 4, ...)
+
+// Limits, cost routing, context and escalation.
+let s2 = try Suggester.withOptions(apiKey: key, lineup: "anthropic",
+                                   options: SuggesterOptions(maxTier: .hard, decision: .cost(missPenalty: 1)))
+let r2 = try await s2.suggestWith(task: "What is wrong in this screenshot?",
+                                  context: TaskContext(files: 12, images: 1, promptTokens: 40_000),
+                                  available: ["opus", "sonnet", "haiku"])
+let up = s2.escalate(from: r2, available: ["opus", "sonnet", "haiku"])  // next model up, or nil
+modelInfo(id: "openrouter/openai/gpt-6-luna")?.inputCost
 ```
 
 `available` entries match a lineup model by native or canonical id, with
 or without a `host/` prefix, or by a word of the id that names one tier
 (`opus`). A tier with no match takes the nearest matched tier, stronger
-first (`Lineup::model_among`). Backend failures throw `SortanaError.Backend`.
+first (`Lineup::model_among`). Effort, needs, model info and capability fit
+are judged on the lineup model each entry matched. `SuggesterOptions` fields
+left `nil` keep sortana's defaults. Backend failures throw
+`SortanaError.Backend(detail:)`, and invalid options throw
+`SortanaError.Config(detail:)`.
 
 Two ways to ship it:
 
@@ -169,6 +292,34 @@ Two ways to ship it:
   like Sessh): depend on `crates/sortana-ffi` from that library and generate
   the bindings with `scripts/swift-bindings.sh OUT_DIR`. Two Rust static
   libraries in one binary would duplicate std.
+
+## Kotlin (Android, JVM)
+
+The same crate generates Kotlin bindings (package `io.github.lum1n.sortana`,
+loaded through JNA, `suspend` functions on kotlinx-coroutines). The API
+mirrors Swift's:
+
+```kotlin
+import io.github.lum1n.sortana.*
+
+val s = Suggester.withOptions(key, lineupForHarness("codex") ?: "openai",
+    SuggesterOptions(maxTier = Tier.HARD, decision = Decision.Cost(1.0f)))
+val r = s.suggestWith("Find the deadlock in the job queue",
+    TaskContext(files = 12u, images = 1u), listOf())
+r.tier; r.model; r.effort; r.reasoningEffort; r.needs; r.modelInfo
+s.escalate(r, listOf())
+```
+
+Errors are `SortanaException.Backend` / `.Config`, with the text in `detail`.
+
+- **Android:** `scripts/build-android.sh` builds `libsortana_ffi.so` for
+  arm64-v8a, armeabi-v7a and x86_64 with cargo-ndk, writes the bindings into
+  `kotlin/`, and assembles `kotlin/build/outputs/aar/sortana-release.aar`
+  (minSdk 26, depends on JNA and kotlinx-coroutines). Use `--no-gradle` to
+  only generate the sources and libraries.
+- **JVM or other builds:** `scripts/kotlin-bindings.sh OUT_DIR` writes the
+  bindings and prints the host library's path. Load it with
+  `-Djna.library.path=<its directory>`.
 
 ## Features
 
@@ -191,6 +342,7 @@ export TYPESAFE_API_KEY=...
 echo "fix typo in README" | cargo run --features cli
 cargo run --features cli -- --lineup openai --json "design a multi-region event platform"
 cargo run --features cli -- --lineup qwen --opencode --host openrouter "add a --verbose flag"
+cargo run --features cli -- --max-tier hard --cost 2 --images 1 --tokens 120000 "why does this chart dip"
 cargo run --features cli -- --list opencode   # what a host serves; * marks substituted tiers
 cargo run --features cli -- --hosts
 ```
@@ -198,7 +350,8 @@ cargo run --features cli -- --hosts
 ## Cost and latency
 
 According to TypeSafe AI, Jev responds in 70-500 ms and costs $0.042 per million
-input tokens, with free output. The rubric adds a few hundred input tokens per request.
+input tokens, with free output. The tier rubric adds a few hundred input tokens
+per request, and the effort, vision and tools questions add a few hundred more.
 
 ## Evaluation
 
