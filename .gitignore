@@ -1,1 +1,4 @@
 /target
+/swift/SortanaFFI.xcframework/
+/swift/Sources/Sortana/sortana_ffi.swift
+/swift/.build/

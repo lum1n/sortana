@@ -44,3 +44,6 @@ required-features = ["jev"]
 [[test]]
 name = "jev_http"
 required-features = ["jev"]
+
+[workspace]
+members = [".", "crates/sortana-ffi"]

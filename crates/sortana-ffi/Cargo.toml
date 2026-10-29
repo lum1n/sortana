@@ -1,0 +1,31 @@
+[package]
+name = "sortana-ffi"
+description = "UniFFI bindings (Swift, Kotlin) for sortana"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[lib]
+# `staticlib` for apps that link it alone; apps with their own Rust static
+# library (Sessh) depend on the crate instead, so std is linked once.
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "sortana_ffi"
+
+[[bin]]
+# Generates Swift/Kotlin sources: `cargo run -p sortana-ffi --features bindgen --bin uniffi-bindgen -- generate ...`
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+sortana = { path = "../..", features = ["jev"] }
+thiserror = "2"
+# `tokio`: async exports run on a tokio runtime, which reqwest needs.
+uniffi = { version = "0.32", features = ["tokio"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
