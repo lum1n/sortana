@@ -26,6 +26,9 @@ pub enum Error {
     #[error("invalid backend response: {0}")]
     InvalidResponse(String),
 
+    #[error(transparent)]
+    Preset(#[from] crate::PresetError),
+
     /// Any other backend-specific failure. Set `retryable` to opt into retries.
     #[error("backend error: {message}")]
     Backend { message: String, retryable: bool },
@@ -39,7 +42,9 @@ impl Error {
             Error::Timeout(_) | Error::Transport(_) => true,
             Error::Http { status, .. } => matches!(status, 408 | 429 | 500..=599),
             Error::Backend { retryable, .. } => *retryable,
-            Error::EmptyInput | Error::Config(_) | Error::InvalidResponse(_) => false,
+            Error::EmptyInput | Error::Config(_) | Error::InvalidResponse(_) | Error::Preset(_) => {
+                false
+            }
         }
     }
 }

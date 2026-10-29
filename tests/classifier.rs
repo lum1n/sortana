@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use sortana::{
-    Backend, BoxFuture, Classifier, ClassifyRequest, Error, OnError, Result, TRUNCATION_MARKER,
-    Tier, TierProbs,
+    Backend, BoxFuture, Classifier, ClassifyRequest, Error, ModelMap, OnError, Result,
+    TRUNCATION_MARKER, Tier, TierProbs,
 };
 
 type Step = (Duration, Result<TierProbs>);
@@ -310,14 +310,49 @@ fn build_validates_config() {
     assert!(classifier(&mock).concurrency(0).build().is_err());
 }
 
-#[test]
-fn model_map_is_applied() {
-    let c = classifier(&Mock::default())
-        .models(sortana::ModelMap::default().with(Tier::VeryHard, "claude-fable-5-1"))
+#[tokio::test]
+async fn result_carries_model_for_lineup() {
+    let mock = Mock::new([probs([0.0, 0.0, 0.0, 1.0], 0.9)]);
+    let r = classifier(&mock)
+        .build()
+        .unwrap()
+        .classify("x")
+        .await
+        .unwrap();
+    assert_eq!(r.model, "claude-fable-5-1");
+
+    let mock = Mock::new([probs([0.9, 0.1, 0.0, 0.0], 0.9)]);
+    let c = classifier(&mock)
+        .models(ModelMap::openai())
         .build()
         .unwrap();
-    assert_eq!(c.model_for(Tier::Simple), "haiku");
-    assert_eq!(c.model_for(Tier::VeryHard), "claude-fable-5-1");
+    let r = c.classify("x").await.unwrap();
+    assert_eq!(r.model, "gpt-6-luna");
+    assert_eq!(c.model_for(Tier::Hard), "gpt-6.1-sol");
+}
+
+#[tokio::test]
+async fn bumped_and_degraded_results_use_final_tier_model() {
+    let mock = Mock::new([probs([0.45, 0.4, 0.1, 0.05], 0.3)]);
+    let c = classifier(&mock)
+        .models(ModelMap::google())
+        .build()
+        .unwrap();
+    let r = c.classify("x").await.unwrap();
+    assert_eq!((r.raw_tier, r.tier), (Tier::Simple, Tier::Medium));
+    assert_eq!(r.model, "gemini-3.6-flash");
+
+    let mock = Mock::new([http(401)]);
+    let models = ModelMap::new("small", "mid", "large", "huge");
+    let r = classifier(&mock)
+        .models(models)
+        .build()
+        .unwrap()
+        .classify("x")
+        .await
+        .unwrap();
+    assert!(r.degraded);
+    assert_eq!(r.model, "mid");
 }
 
 #[cfg(feature = "cache")]

@@ -17,6 +17,8 @@ pub const TRUNCATION_MARKER: &str = "\n[...]\n";
 pub struct Classification {
     /// The tier to route to.
     pub tier: Tier,
+    /// Model id for `tier` from the classifier's [`ModelMap`].
+    pub model: String,
     /// The most likely tier before any confidence bump.
     pub raw_tier: Tier,
     /// Normalized probabilities, indexed like [`Tier::ALL`]. All zero when `degraded`.
@@ -111,6 +113,7 @@ impl Classifier {
                 OnError::Fail => Err(e),
                 OnError::Fallback(tier) => Ok(Classification {
                     tier,
+                    model: self.model_for(tier).to_owned(),
                     raw_tier: tier,
                     probabilities: [0.0; 4],
                     confidence: 0.0,
@@ -166,6 +169,7 @@ impl Classifier {
         let tier = if bump { raw_tier.up() } else { raw_tier };
         Classification {
             tier,
+            model: self.model_for(tier).to_owned(),
             raw_tier,
             probabilities: probs.probabilities,
             confidence: probs.confidence,
@@ -334,6 +338,7 @@ impl ClassifierBuilder {
         self
     }
 
+    /// Route to these models. Defaults to the Anthropic lineup.
     pub fn models(mut self, models: ModelMap) -> Self {
         self.models = models;
         self

@@ -49,16 +49,6 @@ impl Tier {
             Tier::Hard | Tier::VeryHard => Tier::VeryHard,
         }
     }
-
-    /// Default model alias for this tier. Use [`ModelMap`] to override.
-    pub const fn default_model(self) -> &'static str {
-        match self {
-            Tier::Simple => "haiku",
-            Tier::Medium => "sonnet",
-            Tier::Hard => "opus",
-            Tier::VeryHard => "fable",
-        }
-    }
 }
 
 impl fmt::Display for Tier {
@@ -114,32 +104,6 @@ impl TierProbs {
     }
 }
 
-/// Maps tiers to model identifiers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ModelMap([String; 4]);
-
-impl ModelMap {
-    pub fn new(simple: &str, medium: &str, hard: &str, very_hard: &str) -> Self {
-        ModelMap([simple, medium, hard, very_hard].map(str::to_owned))
-    }
-
-    pub fn with(mut self, tier: Tier, model: impl Into<String>) -> Self {
-        self.0[tier.index()] = model.into();
-        self
-    }
-
-    pub fn get(&self, tier: Tier) -> &str {
-        &self.0[tier.index()]
-    }
-}
-
-impl Default for ModelMap {
-    fn default() -> Self {
-        ModelMap(Tier::ALL.map(|t| t.default_model().to_owned()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,13 +131,6 @@ mod tests {
         }
         assert!(Tier::Simple < Tier::VeryHard);
         assert_eq!(Tier::VeryHard.up(), Tier::VeryHard);
-    }
-
-    #[test]
-    fn model_map_override() {
-        let m = ModelMap::default().with(Tier::Hard, "claude-opus-5-5");
-        assert_eq!(m.get(Tier::Simple), "haiku");
-        assert_eq!(m.get(Tier::Hard), "claude-opus-5-5");
     }
 
     #[test]

@@ -1,0 +1,90 @@
+# Curated model lineups, one per model maker. Each `models` list holds
+# models.dev canonical ids (without the maker prefix) in tier order:
+# [simple, medium, hard, very_hard]. A model may repeat when the maker has
+# fewer than four distinct tiers.
+#
+# Optional `native` lists the ids on the maker's own API when they differ from
+# the canonical names (the script warns when it cannot confirm one).
+#
+# After editing, regenerate src/catalog.rs:
+#   python3 scripts/update-catalog.py
+
+[anthropic]
+name = "Anthropic"
+models = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"]
+
+[openai]
+name = "OpenAI"
+models = ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.1-sol", "gpt-6-astra"]
+
+[google]
+name = "Google"
+models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-4-argon"]
+
+[mistral]
+name = "Mistral"
+models = ["ministral-14b-2512", "mistral-small-2603", "mistral-medium-3-5", "mistral-large-4"]
+# Mistral's API lists Medium 3.5 by its dated id.
+native = ["ministral-14b-2512", "mistral-small-2603", "mistral-medium-2604", "mistral-large-4"]
+
+[xai]
+name = "xAI"
+models = ["grok-4.3", "grok-4.3", "grok-4.7", "grok-4.7"]
+
+[deepseek]
+name = "DeepSeek"
+models = ["deepseek-v4.1-flash", "deepseek-v4.1-flash", "deepseek-v4-pro", "deepseek-v4-pro"]
+# DeepSeek's API serves these under aliases.
+native = ["deepseek-flash", "deepseek-flash", "deepseek-v4-pro", "deepseek-v4-pro"]
+
+[alibaba]
+name = "Alibaba (Qwen)"
+models = ["qwen3.8-flash", "qwen3.7-plus", "qwen3.8-max", "qwen3.8-max"]
+
+[moonshotai]
+name = "Moonshot AI (Kimi)"
+models = ["kimi-k2.6", "kimi-k2.7-code", "kimi-k3", "kimi-k3.1-pro"]
+
+[zhipuai]
+name = "Zhipu AI (GLM)"
+models = ["glm-5.3-flash", "glm-5.1", "glm-5.3", "glm-5.3"]
+
+[minimax]
+name = "MiniMax"
+models = ["MiniMax-M3.1-Flash", "MiniMax-M3.1-Flash", "MiniMax-M3", "MiniMax-M3"]
+
+[meta]
+name = "Meta (Muse)"
+models = ["muse-spark-1.3", "muse-spark-1.3", "muse-wonder-1.0", "muse-wonder-1.0"]
+
+[nvidia]
+name = "Nvidia (Nemotron)"
+models = ["nemotron-3.5-lightning", "nemotron-3.5-super-vl-120b-a12b", "nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b"]
+
+[xiaomi]
+name = "Xiaomi (MiMo)"
+models = ["mimo-v2.6-flash", "mimo-v2.6-flash", "mimo-v2.6-pro", "mimo-v2.6-pro"]
+
+[bytedance-seed]
+name = "ByteDance (Seed)"
+models = ["seed-2.0-mini", "seed-2.0-lite", "seed-2.1-turbo", "seed-2.1-turbo"]
+
+[stepfun]
+name = "StepFun"
+models = ["step-3.5-flash", "step-3.7-flash", "step-5-preview", "step-5-preview"]
+
+[tencent]
+name = "Tencent (Hy)"
+models = ["hy3", "hy3", "hy4-preview", "hy4-preview"]
+
+[cohere]
+name = "Cohere"
+models = ["command-r7b-12-2024", "command-a-03-2025", "command-a-reasoning-08-2025", "command-a-plus-05-2026"]
+
+[amazon]
+name = "Amazon (Nova)"
+models = ["nova-micro", "nova-lite", "nova-2-lite", "nova-pro"]
+
+[upstage]
+name = "Upstage (Solar)"
+models = ["solar-mini4", "solar-mini4", "solar-pro4", "solar-pro4"]
