@@ -1,0 +1,40 @@
+{"text": "Fix the typo 'recieve' in README.md", "tier": "simple"}
+{"text": "What is the capital of Australia?", "tier": "simple"}
+{"text": "Rename the variable `usr` to `user` in this function", "tier": "simple"}
+{"text": "Convert this JSON object to YAML: {\"name\": \"a\", \"port\": 8080}", "tier": "simple"}
+{"text": "Summarize this paragraph in one sentence: The meeting was moved to Thursday because the room was booked.", "tier": "simple"}
+{"text": "Translate 'good morning, how are you?' into Norwegian", "tier": "simple"}
+{"text": "Give me the git command to undo the last commit but keep the changes", "tier": "simple"}
+{"text": "Sort this list alphabetically: pear, apple, fig, banana", "tier": "simple"}
+{"text": "Reformat this SQL query so each clause is on its own line", "tier": "simple"}
+{"text": "How do I list hidden files with ls?", "tier": "simple"}
+{"text": "Add a --verbose flag to our CLI that prints each file as it is processed", "tier": "medium"}
+{"text": "Write unit tests for the parse_duration function in utils.rs, covering invalid input", "tier": "medium"}
+{"text": "The login form submits twice when the user presses Enter. Fix it; the handler is in LoginForm.tsx", "tier": "medium"}
+{"text": "Implement a function that validates IBAN numbers in TypeScript", "tier": "medium"}
+{"text": "Explain how Rust's borrow checker handles mutable references, with examples", "tier": "medium"}
+{"text": "Write a SQL query that returns the top 5 customers by revenue per month for 2025", "tier": "medium"}
+{"text": "Add pagination to the /orders endpoint in our Express API", "tier": "medium"}
+{"text": "Write a 600-word blog post comparing PostgreSQL and SQLite for small web apps", "tier": "medium"}
+{"text": "Create a GitHub Actions workflow that runs cargo test and clippy on pull requests", "tier": "medium"}
+{"text": "Implement an LRU cache class in Python with get and put in O(1)", "tier": "medium"}
+{"text": "Refactor our payment module across 30 files to replace the callback API with async/await, keeping behaviour identical", "tier": "hard"}
+{"text": "Our service leaks memory slowly in production but not in staging. Find the cause; heap dumps attached", "tier": "hard"}
+{"text": "Migrate the app from MySQL 5.7 to PostgreSQL 16 including schema, data and queries, with no downtime", "tier": "hard"}
+{"text": "Audit this authentication service for security vulnerabilities and fix what you find", "tier": "hard"}
+{"text": "The p99 latency of our search endpoint doubled after the last release. Profile it and fix the regression", "tier": "hard"}
+{"text": "Integrate Stripe billing, our CRM and the internal user service so subscription changes stay in sync", "tier": "hard"}
+{"text": "Port this 5,000-line jQuery frontend to React with TypeScript", "tier": "hard"}
+{"text": "Intermittent test failures in CI only on ARM runners; tests involve threads and file locks. Diagnose and fix", "tier": "hard"}
+{"text": "Migrate our billing service to event sourcing", "tier": "hard"}
+{"text": "Analyze these 12 quarterly reports and write a detailed assessment of the company's competitive position", "tier": "hard"}
+{"text": "Design a globally distributed, strongly consistent database for financial ledgers with multi-region failover, from scratch", "tier": "very_hard"}
+{"text": "Prove that every planar graph is 5-colorable, rigorously", "tier": "very_hard"}
+{"text": "Design the architecture for a real-time multiplayer game backend serving 10 million concurrent players across continents, covering state sync, anti-cheat and cost", "tier": "very_hard"}
+{"text": "Invent a new lock-free algorithm for a concurrent priority queue and prove its linearizability", "tier": "very_hard"}
+{"text": "Design a compiler for a new dependently typed language, including type checker, IR and code generation strategy", "tier": "very_hard"}
+{"text": "Propose and analyze a novel approach to reducing hallucination in large language models, with an experimental plan", "tier": "very_hard"}
+{"text": "Architect a replacement for our monolith as 20 services across three data centers, with a migration plan, consistency model and failure analysis", "tier": "very_hard"}
+{"text": "Find a polynomial-time algorithm for this scheduling problem or prove it is NP-hard", "tier": "very_hard"}
+{"text": "Design an end-to-end encrypted group messaging protocol with forward secrecy and post-compromise security, and argue its security", "tier": "very_hard"}
+{"text": "Build a formal model of our distributed consensus protocol in TLA+ and find any safety violations", "tier": "very_hard"}

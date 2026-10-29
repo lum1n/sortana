@@ -1,0 +1,46 @@
+[package]
+name = "sortana"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Embeddable task-complexity classifier for model routing, backed by TypeSafe AI's Jev"
+repository = "https://github.com/lum1n/sortana"
+keywords = ["llm", "routing", "classifier", "anthropic", "jev"]
+categories = ["api-bindings", "text-processing"]
+
+[features]
+default = ["jev"]
+jev = ["dep:reqwest", "dep:serde", "dep:serde_json"]
+blocking = ["tokio/rt"]
+cache = ["dep:lru"]
+serde = ["dep:serde"]
+cli = ["jev", "blocking", "serde"]
+
+[dependencies]
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+thiserror = "2"
+tokio = { version = "1", default-features = false, features = ["time"] }
+lru = { version = "0.18", optional = true }
+reqwest = { version = "0.13", optional = true, default-features = false, features = ["rustls", "json", "http2"] }
+serde = { version = "1", optional = true, features = ["derive"] }
+serde_json = { version = "1", optional = true }
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time", "test-util", "net", "io-util"] }
+
+[[bin]]
+name = "sortana"
+required-features = ["cli"]
+
+[[example]]
+name = "eval"
+required-features = ["jev"]
+
+[[test]]
+name = "live"
+required-features = ["jev"]
+
+[[test]]
+name = "jev_http"
+required-features = ["jev"]
