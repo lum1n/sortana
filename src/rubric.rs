@@ -5,7 +5,7 @@
 use crate::Tier;
 
 /// Version of [`RUBRIC`], reported in every `Classification`.
-pub const RUBRIC_VERSION: &str = "2026-10-29.2";
+pub const RUBRIC_VERSION: &str = "2026-10-29.3";
 
 /// Question instructions plus one criterion per tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,23 +74,27 @@ pub const EFFORT: Question = Question {
     instructions: concat!(
         preamble!(),
         "Rate how much step-by-step thinking a capable model should spend before \
-         answering, separate from how capable the model must be."
+         answering, separate from how capable the model must be. Judge how hard the \
+         hardest step is to get right, not how much work there is: a large task made \
+         of clear steps needs little thinking per step."
     ),
     options: &[
         (
             "low",
-            "The answer is direct or the steps are obvious: recall, a mechanical edit, \
-             a routine command, light writing.",
+            "The answer is direct or every step is obvious: recall, a mechanical edit, \
+             a routine command, routine writing on a familiar topic.",
         ),
         (
             "medium",
-            "Some planning or checking pays off: a few dependent steps, weighing a couple \
-             of options, tracing a bug through known code.",
+            "Some planning or checking pays off: weighing a couple of options, tracing a \
+             bug through known code, or large but routine work (many files, a port, an \
+             integration, a long analysis) where each step is clear once planned.",
         ),
         (
             "high",
-            "Long careful reasoning pays off: many dependent steps, subtle edge cases, \
-             proofs, hard debugging, design with competing trade-offs.",
+            "Steps stay hard even one at a time and long careful reasoning pays off: \
+             subtle edge cases, proofs, debugging without an obvious cause, design with \
+             competing trade-offs.",
         ),
     ],
 };
