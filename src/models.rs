@@ -643,6 +643,35 @@ mod tests {
     }
 
     #[test]
+    fn meets_requires_every_need() {
+        let mut info = *ModelInfo::get("anthropic/claude-opus-5-5").unwrap();
+        info.vision = true;
+        info.tools = false;
+        info.max_input = 0;
+        // Tools missing fails even when everything else is met.
+        assert!(!info.meets(&Needs {
+            vision: true,
+            tools: true,
+            context_tokens: None,
+        }));
+        // An unknown (zero) input limit never rules a model out.
+        assert!(info.meets(&Needs {
+            vision: true,
+            tools: false,
+            context_tokens: Some(u64::MAX),
+        }));
+        info.max_input = 1000;
+        assert!(info.meets(&Needs {
+            context_tokens: Some(1000),
+            ..Needs::default()
+        }));
+        assert!(!info.meets(&Needs {
+            context_tokens: Some(1001),
+            ..Needs::default()
+        }));
+    }
+
+    #[test]
     fn models_among_carries_matched_infos() {
         let a = Lineup::get("anthropic").unwrap();
         let m = a.models_among(&["opus", "haiku"]).unwrap();
