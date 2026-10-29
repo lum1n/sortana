@@ -29,13 +29,15 @@ mod config;
 mod error;
 mod models;
 pub mod rubric;
+mod signals;
 mod tier;
 
 #[cfg(feature = "jev")]
 pub use backend::jev::JevBackend;
-pub use backend::{Backend, BoxFuture, ClassifyRequest};
+pub use backend::{Ask, Backend, BoxFuture, ClassifyRequest};
 pub use classifier::{Classification, Classifier, ClassifierBuilder, TRUNCATION_MARKER, truncate};
-pub use config::{Config, OnError};
+pub use config::{Config, Decision, OnError};
 pub use error::{Error, Result};
-pub use models::{CATALOG_DATE, Host, Lineup, ModelMap, PresetError, host_model_id};
+pub use models::{CATALOG_DATE, Host, Lineup, ModelInfo, ModelMap, PresetError, host_model_id};
+pub use signals::{Assessment, Context, Effort, Needs, ParseEffortError};
 pub use tier::{ParseTierError, Tier, TierProbs};

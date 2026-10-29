@@ -11,6 +11,28 @@ pub enum OnError {
     Fail,
 }
 
+/// How the tier is picked from the backend's probabilities.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Decision {
+    /// The most likely tier, moved up one when confidence is below
+    /// `min_confidence` and `bias_up` is on.
+    Confidence,
+    /// The tier with the lowest expected cost, from the models' list prices.
+    /// Choosing a tier costs its model's price. When the task turns out to
+    /// need a stronger model, it is re-run there, which costs that model's
+    /// price times `1 + miss_penalty`; the penalty stands for the time and
+    /// the bad answer lost. Tiers sharing a model count as one. Falls back to
+    /// `Confidence` when a tier's model has no known price. Needs apply
+    /// afterwards and can only move the tier up.
+    Cost { miss_penalty: f32 },
+}
+
+impl Decision {
+    /// [`Decision::Cost`] with `miss_penalty = 1`: a miss costs double the
+    /// stronger model's price.
+    pub const COST: Decision = Decision::Cost { miss_penalty: 1.0 };
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     /// Deadline for each backend attempt.
@@ -29,6 +51,15 @@ pub struct Config {
     pub model: String,
     /// Maximum in-flight requests in `classify_many`.
     pub concurrency: usize,
+    pub decision: Decision,
+    /// Lowest tier to route to, e.g. to keep the smallest model out.
+    pub min_tier: Tier,
+    /// Highest tier to route to, e.g. to cap spend on a free plan.
+    pub max_tier: Tier,
+    /// Ask the backend how much reasoning effort the task needs.
+    pub ask_effort: bool,
+    /// Ask the backend whether the task needs vision and tools.
+    pub ask_needs: bool,
 }
 
 impl Default for Config {
@@ -43,6 +74,11 @@ impl Default for Config {
             max_input_chars: 8000,
             model: "jev-latest".to_owned(),
             concurrency: 8,
+            decision: Decision::Confidence,
+            min_tier: Tier::Simple,
+            max_tier: Tier::VeryHard,
+            ask_effort: true,
+            ask_needs: true,
         }
     }
 }

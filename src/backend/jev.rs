@@ -6,12 +6,13 @@ use std::time::Duration;
 use serde_json::{Map, Value, json};
 
 use crate::backend::{Backend, BoxFuture, ClassifyRequest};
-use crate::{Error, Result, Tier, TierProbs};
+use crate::rubric::{EFFORT, Question, TOOLS, VISION};
+use crate::{Assessment, Effort, Error, Result, Tier, TierProbs};
 
 pub const DEFAULT_BASE_URL: &str = "https://api.typesafe.ai";
 pub const DEFAULT_MODEL: &str = "jev-latest";
 
-/// Id of the single Choice question in each request.
+/// Id of the tier Choice question in each request.
 const QUESTION_ID: &str = "complexity";
 /// Cap on response body text kept in `Error::Http`.
 const MAX_ERROR_BODY: usize = 512;
@@ -62,26 +63,40 @@ impl JevBackend {
         self
     }
 
-    /// JSON body for a request.
+    /// JSON body for a request: the tier question, plus the effort, vision
+    /// and tools questions when `req.ask` wants them.
     pub fn request_body(&self, req: &ClassifyRequest) -> Value {
         let criteria: Map<String, Value> = Tier::ALL
             .iter()
             .map(|t| (t.as_str().to_owned(), Value::from(req.rubric.criterion(*t))))
             .collect();
+        let mut questions = Map::new();
+        questions.insert(
+            QUESTION_ID.to_owned(),
+            json!({
+                "type": "choice",
+                "instructions": req.rubric.instructions,
+                "criteria": criteria,
+            }),
+        );
+        let mut extra = Vec::new();
+        if req.ask.effort {
+            extra.push(&EFFORT);
+        }
+        if req.ask.needs {
+            extra.extend([&VISION, &TOOLS]);
+        }
+        for q in extra {
+            questions.insert(q.id.to_owned(), choice(q));
+        }
         json!({
-            "state": req.text,
+            "state": req.state(),
             "model": self.model,
-            "questions": {
-                QUESTION_ID: {
-                    "type": "choice",
-                    "instructions": req.rubric.instructions,
-                    "criteria": criteria,
-                }
-            }
+            "questions": questions,
         })
     }
 
-    async fn call(&self, req: ClassifyRequest) -> Result<TierProbs> {
+    async fn call(&self, req: ClassifyRequest) -> Result<Assessment> {
         let resp = self
             .client
             .post(format!("{}/v1/systemone", self.base_url))
@@ -106,14 +121,27 @@ impl JevBackend {
                 body,
             });
         }
-        parse_response(&body)
+        parse_assessment(&body)
     }
 }
 
 impl Backend for JevBackend {
     fn classify(&self, req: ClassifyRequest) -> BoxFuture<'_, Result<TierProbs>> {
+        Box::pin(async move { self.call(req).await.map(|a| a.tiers) })
+    }
+
+    fn assess(&self, req: ClassifyRequest) -> BoxFuture<'_, Result<Assessment>> {
         Box::pin(self.call(req))
     }
+}
+
+fn choice(q: &Question) -> Value {
+    let criteria: Map<String, Value> = q
+        .options
+        .iter()
+        .map(|(k, v)| ((*k).to_owned(), Value::from(*v)))
+        .collect();
+    json!({ "type": "choice", "instructions": q.instructions, "criteria": criteria })
 }
 
 fn transport(e: reqwest::Error) -> Error {
@@ -130,13 +158,61 @@ fn transport(e: reqwest::Error) -> Error {
 /// as 0). Without probabilities, it falls back to a one-hot on `choice`.
 /// Without `confidence`, it uses the top probability.
 pub fn parse_response(body: &str) -> Result<TierProbs> {
+    parse_assessment(body).map(|a| a.tiers)
+}
+
+/// Parse a Jev response body: the tier answer as in [`parse_response`], plus
+/// the effort, vision and tools answers when present. A missing or
+/// unreadable extra answer is `None`, not an error.
+pub fn parse_assessment(body: &str) -> Result<Assessment> {
     let v: Value =
         serde_json::from_str(body).map_err(|e| Error::InvalidResponse(format!("not JSON: {e}")))?;
-    let answer = v
-        .get("answers")
+    let answers = v.get("answers");
+    let answer = answers
         .and_then(|a| a.get(QUESTION_ID))
         .ok_or_else(|| Error::InvalidResponse(format!("missing answers.{QUESTION_ID}")))?;
+    let extra = |id: &str| answers.and_then(|a| a.get(id));
+    Ok(Assessment {
+        tiers: parse_tiers(answer)?,
+        effort: extra(EFFORT.id).and_then(|a| {
+            let p = options(a, &Effort::ALL.map(Effort::as_str))?;
+            Some([p[0], p[1], p[2]])
+        }),
+        vision: extra(VISION.id).and_then(yes),
+        tools: extra(TOOLS.id).and_then(yes),
+    })
+}
 
+/// Probability of each option in `names`, from `probabilities` or, without
+/// them, a one-hot on `choice`. `None` when neither names an option.
+fn options(answer: &Value, names: &[&str]) -> Option<Vec<f32>> {
+    let mut p = vec![0.0f32; names.len()];
+    let mut any = false;
+    if let Some(map) = answer.get("probabilities").and_then(Value::as_object) {
+        for (i, name) in names.iter().enumerate() {
+            if let Some(x) = map.get(*name).and_then(Value::as_f64) {
+                p[i] = x as f32;
+                any = true;
+            }
+        }
+    }
+    if !any {
+        let choice = answer.get("choice").and_then(Value::as_str)?;
+        let i = names
+            .iter()
+            .position(|n| n.eq_ignore_ascii_case(choice.trim()))?;
+        p[i] = 1.0;
+    }
+    let sum: f32 = p.iter().sum();
+    (sum > 0.0 && sum.is_finite()).then(|| p.iter().map(|x| x / sum).collect())
+}
+
+/// Probability of `yes` in a yes/no answer.
+fn yes(answer: &Value) -> Option<f32> {
+    options(answer, &["yes", "no"]).map(|p| p[0])
+}
+
+fn parse_tiers(answer: &Value) -> Result<TierProbs> {
     let mut probabilities = [0.0f32; 4];
     let mut any = false;
     if let Some(map) = answer.get("probabilities").and_then(Value::as_object) {
@@ -172,6 +248,7 @@ pub fn parse_response(body: &str) -> Result<TierProbs> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::Ask;
     use crate::rubric::RUBRIC;
 
     #[test]
@@ -225,11 +302,36 @@ mod tests {
     }
 
     #[test]
+    fn parses_extra_answers() {
+        let body = r#"{"answers":{
+            "complexity":{"choice":"hard","confidence":0.8,"probabilities":{"hard":0.8,"medium":0.2}},
+            "effort":{"choice":"high","probabilities":{"low":0.1,"medium":0.3,"high":0.6}},
+            "vision":{"choice":"no","probabilities":{"yes":0.25,"no":0.75}},
+            "tools":{"choice":"yes"}
+        }}"#;
+        let a = parse_assessment(body).unwrap();
+        assert_eq!(a.tiers.argmax(), Tier::Hard);
+        assert_eq!(a.effort, Some([0.1, 0.3, 0.6]));
+        assert_eq!(a.vision, Some(0.25));
+        assert_eq!(a.tools, Some(1.0));
+        // Missing or unusable extras are None.
+        let body =
+            r#"{"answers":{"complexity":{"choice":"simple"},"effort":{"choice":"extreme"}}}"#;
+        let a = parse_assessment(body).unwrap();
+        assert_eq!((a.effort, a.vision, a.tools), (None, None, None));
+    }
+
+    #[test]
     fn request_body_shape() {
         let b = JevBackend::with_client(reqwest::Client::new(), "k").model("jev-test");
         let req = ClassifyRequest {
             text: "fix typo".into(),
+            context: None,
             rubric: &RUBRIC,
+            ask: Ask {
+                effort: false,
+                needs: false,
+            },
         };
         let v = b.request_body(&req);
         assert_eq!(v["state"], "fix typo");
@@ -240,5 +342,27 @@ mod tests {
         let criteria = q["criteria"].as_object().unwrap();
         assert_eq!(criteria.len(), 4);
         assert_eq!(criteria["very_hard"], RUBRIC.criteria[3]);
+        assert_eq!(v["questions"].as_object().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn request_body_with_context_and_extras() {
+        let b = JevBackend::with_client(reqwest::Client::new(), "k");
+        let req = ClassifyRequest {
+            text: "fix typo".into(),
+            context: Some("Context:\n- images attached: 1".into()),
+            rubric: &RUBRIC,
+            ask: Ask {
+                effort: true,
+                needs: true,
+            },
+        };
+        let v = b.request_body(&req);
+        assert_eq!(v["state"], "fix typo\n\nContext:\n- images attached: 1");
+        let q = v["questions"].as_object().unwrap();
+        assert_eq!(q.len(), 4);
+        assert_eq!(q["effort"]["criteria"].as_object().unwrap().len(), 3);
+        assert_eq!(q["vision"]["criteria"]["yes"], VISION.options[0].1);
+        assert_eq!(q["tools"]["type"], "choice");
     }
 }

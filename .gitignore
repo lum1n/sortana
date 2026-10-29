@@ -2,3 +2,8 @@
 /swift/SortanaFFI.xcframework/
 /swift/Sources/Sortana/sortana_ffi.swift
 /swift/.build/
+/kotlin/src/main/kotlin/io/
+/kotlin/src/main/jniLibs/
+/kotlin/build/
+/kotlin/.gradle/
+/kotlin/local.properties
