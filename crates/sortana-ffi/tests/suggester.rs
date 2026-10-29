@@ -66,6 +66,9 @@ async fn suggests_from_the_apps_models() {
     assert_eq!(r.probabilities.len(), 4);
 }
 
+const SIMPLE: &str = r#"{"answers":{"complexity":{"type":"choice","choice":"simple","confidence":0.9,
+    "probabilities":{"simple":0.9,"medium":0.1,"hard":0.0,"very_hard":0.0}}}}"#;
+
 const HARD_WITH_SIGNALS: &str = r#"{"answers":{
     "complexity":{"choice":"hard","confidence":0.9,"probabilities":{"medium":0.1,"hard":0.9}},
     "effort":{"choice":"high","probabilities":{"low":0.0,"medium":0.2,"high":0.8}},
@@ -107,10 +110,10 @@ async fn suggestion_carries_effort_needs_and_info() {
 
 #[tokio::test]
 async fn context_and_options_shape_the_suggestion() {
-    let url = serve_once("200 OK", HARD).await;
+    let url = serve_once("200 OK", SIMPLE).await;
     let s = Suggester::with_options(
         "k".into(),
-        "deepseek".into(),
+        "amazon".into(),
         SuggesterOptions {
             base_url: Some(url),
             decision: Some(Decision::Confidence),
@@ -122,14 +125,14 @@ async fn context_and_options_shape_the_suggestion() {
         images: 1,
         ..Default::default()
     };
-    // The hard tier's DeepSeek model has no vision; medium's does.
+    // Amazon's simple model (Nova Micro) has no vision; medium's does.
     let r = s
         .suggest_with("What is wrong in this screenshot?".into(), ctx, vec![])
         .await
         .unwrap();
     assert_eq!(r.tier, Tier::Medium);
     assert!(r.refit && r.needs.vision);
-    assert_eq!(r.model.as_deref(), Some("deepseek-flash"));
+    assert_eq!(r.model.as_deref(), Some("nova-lite"));
 
     let url = serve_once("200 OK", HARD).await;
     let s = Suggester::with_options(

@@ -120,10 +120,12 @@ let r = c.classify_with("Why does the chart in this screenshot dip?", &ctx).awai
 
 `r.needs` combines the context with Jev's vision and tools answers. When the
 tier's model can't meet the needs (no image input, a context window that is
-too small, no tool calling), the tier moves to the nearest one whose model
-can, trying stronger tiers first, and `r.refit` is set. `r.fits` is
-`Some(false)` when no model within the tier limits fits, and `None` when the
-model is not one sortana has metadata for.
+too small, no tool calling), the tier moves up to the lowest stronger tier
+whose model can, up to `max_tier`, and `r.refit` is set. Needs never move the
+tier down: a hard task stays on the hard model even if only a weaker model
+accepts images. In that case `r.fits` is `Some(false)`, so the app can
+decide, for example by describing the images in text. `r.fits` is `None` when
+the model is not one sortana has metadata for.
 
 `r.effort` (low, medium, high) is separate from the tier: a short proof can
 need a strong model *and* a lot of thinking, while a big refactor might need a
@@ -175,8 +177,9 @@ lost and the bad answer. Tasks harder than `max_tier` count as needing
 `max_tier`. With `Decision::COST` (`miss_penalty = 1`) and Anthropic's prices,
 a task that is 60% simple, 30% medium and 10% hard goes to Haiku. Raise the
 penalty when wrong answers are expensive. When a tier's model has no known
-price (custom ids), it falls back to the confidence rule. Only tiers within
-the limits whose models meet the needs are considered.
+price (custom ids), it falls back to the confidence rule. The cost rule picks
+among tiers within the limits; needs apply afterwards and can only move the
+tier up.
 
 ### Model metadata
 
@@ -204,8 +207,9 @@ for sync code.
    `min_confidence` (default 0.5) and `bias_up` is on (default), the tier moves up
    one. Under-powering a hard task costs more than over-powering an easy one.
    With `Decision::Cost`, the tier is the cheapest expected one instead.
-4. The tier is clamped to `min_tier..=max_tier`, then moved to the nearest tier
-   whose model meets the task's needs, trying stronger tiers first.
+4. The tier is clamped to `min_tier..=max_tier`, then moved up to the lowest
+   tier (up to `max_tier`) whose model meets the task's needs. Needs never
+   move it down.
 5. Timeouts, transport errors, HTTP 408/429/5xx and backend errors marked
    retryable are retried `retries` times (default 2), with exponential backoff.
    If every attempt fails, `on_error` decides the result. The default,
@@ -279,7 +283,8 @@ modelInfo(id: "openrouter/openai/gpt-6-luna")?.inputCost
 or without a `host/` prefix, or by a word of the id that names one tier
 (`opus`). A tier with no match takes the nearest matched tier, stronger
 first (`Lineup::model_among`). Effort, needs, model info and capability fit
-are judged on the lineup model each entry matched. `SuggesterOptions` fields
+are judged on the lineup model each entry matched, and needs only move the
+tier up. `SuggesterOptions` fields
 left `nil` keep sortana's defaults. Backend failures throw
 `SortanaError.Backend(detail:)`, and invalid options throw
 `SortanaError.Config(detail:)`.
@@ -362,7 +367,11 @@ TYPESAFE_API_KEY=... cargo run --example eval
 ```
 
 The eval reports accuracy, the share of tasks that are off by two or more tiers
-(the target is under 5%), p50/p95 latency and a confusion matrix. Re-run it after
+(the target is under 5%), p50/p95 latency and a confusion matrix. Cases may
+also carry an `effort` label (`low`, `medium`, `high`). The eval then reports
+how often Jev answered the effort question, effort accuracy with its own
+confusion matrix, and how many tasks were flagged as needing vision or tools.
+Effort is reported, not gated. Re-run it after
 any rubric change and bump `RUBRIC_VERSION`.
 
 ## Development

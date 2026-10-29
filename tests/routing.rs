@@ -111,7 +111,29 @@ async fn questions_and_context_reach_the_backend() {
 }
 
 #[tokio::test]
-async fn images_move_to_a_model_with_vision() {
+async fn images_move_up_to_a_model_with_vision() {
+    // Amazon: Nova Micro (text only) for simple, Nova Lite (vision) for medium.
+    let mock = Mock::tier(Tier::Simple);
+    let c = builder(&mock)
+        .models(ModelMap::preset("amazon").unwrap())
+        .build()
+        .unwrap();
+    let ctx = Context {
+        images: 1,
+        ..Default::default()
+    };
+    let r = c
+        .classify_with("What does this receipt say?", &ctx)
+        .await
+        .unwrap();
+    assert_eq!(r.raw_tier, Tier::Simple);
+    assert_eq!((r.tier, r.model.as_str()), (Tier::Medium, "nova-lite"));
+    assert!(r.refit && r.needs.vision);
+    assert_eq!(r.fits, Some(true));
+}
+
+#[tokio::test]
+async fn needs_never_move_the_tier_down() {
     // DeepSeek: v4.1 flash (vision) for simple/medium, v4 pro (text only) above.
     let mock = Mock::tier(Tier::Hard);
     let c = builder(&mock)
@@ -126,23 +148,38 @@ async fn images_move_to_a_model_with_vision() {
         .classify_with("Why does this chart dip?", &ctx)
         .await
         .unwrap();
-    assert_eq!(r.raw_tier, Tier::Hard);
-    assert_eq!(r.tier, Tier::Medium);
-    assert_eq!(r.model, "deepseek-flash");
-    assert!(r.refit && r.needs.vision);
-    assert_eq!(r.fits, Some(true));
+    assert_eq!((r.tier, r.model.as_str()), (Tier::Hard, "deepseek-v4-pro"));
+    assert!(!r.refit);
+    assert_eq!(r.fits, Some(false));
 }
 
 #[tokio::test]
 async fn backend_vision_answer_counts_too() {
-    let mock = Mock::new([0.0, 0.0, 1.0, 0.0], None, 0.8, 0.0);
+    let mock = Mock::new([1.0, 0.0, 0.0, 0.0], None, 0.8, 0.0);
     let c = builder(&mock)
-        .models(ModelMap::preset("deepseek").unwrap())
+        .models(ModelMap::preset("amazon").unwrap())
         .build()
         .unwrap();
     let r = c.classify("Look at the screenshot").await.unwrap();
     assert!(r.needs.vision);
     assert_eq!(r.tier, Tier::Medium);
+}
+
+#[tokio::test]
+async fn refit_stops_at_max_tier() {
+    let mock = Mock::tier(Tier::Simple);
+    let c = builder(&mock)
+        .models(ModelMap::preset("amazon").unwrap())
+        .max_tier(Tier::Simple)
+        .build()
+        .unwrap();
+    let ctx = Context {
+        images: 1,
+        ..Default::default()
+    };
+    let r = c.classify_with("x", &ctx).await.unwrap();
+    assert_eq!(r.tier, Tier::Simple);
+    assert_eq!(r.fits, Some(false));
 }
 
 #[tokio::test]
@@ -202,8 +239,8 @@ async fn tier_limits_clamp() {
 async fn degraded_results_still_honour_context_needs() {
     let mock = Mock::failing(500);
     let c = builder(&mock)
-        .models(ModelMap::preset("deepseek").unwrap())
-        .on_error(sortana::OnError::Fallback(Tier::Hard))
+        .models(ModelMap::preset("amazon").unwrap())
+        .on_error(sortana::OnError::Fallback(Tier::Simple))
         .build()
         .unwrap();
     let ctx = Context {
@@ -265,7 +302,27 @@ async fn cost_decision_without_prices_uses_confidence() {
 }
 
 #[tokio::test]
-async fn cost_decision_respects_needs_and_limits() {
+async fn cost_decision_then_needs_move_up() {
+    // Amazon blended prices: Micro 0.07, Lite 0.105. Cost picks simple
+    // (0.07 + 2 * 0.1 * 0.105 = 0.091 < 0.105); the image then moves it up.
+    let mock = Mock::new([0.9, 0.1, 0.0, 0.0], None, 0.0, 0.0);
+    let c = builder(&mock)
+        .decision(Decision::COST)
+        .models(ModelMap::preset("amazon").unwrap())
+        .build()
+        .unwrap();
+    let ctx = Context {
+        images: 1,
+        ..Default::default()
+    };
+    let r = c.classify_with("x", &ctx).await.unwrap();
+    assert_eq!(r.tier, Tier::Medium);
+    assert!(r.refit);
+    assert_eq!(c.classify("x").await.unwrap().tier, Tier::Simple);
+}
+
+#[tokio::test]
+async fn cost_decision_respects_limits() {
     let mock = Mock::new([0.0, 0.0, 0.0, 1.0], None, 0.0, 0.0);
     let c = builder(&mock)
         .decision(Decision::COST)

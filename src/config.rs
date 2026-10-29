@@ -22,7 +22,8 @@ pub enum Decision {
     /// need a stronger model, it is re-run there, which costs that model's
     /// price times `1 + miss_penalty`; the penalty stands for the time and
     /// the bad answer lost. Tiers sharing a model count as one. Falls back to
-    /// `Confidence` when a tier's model has no known price.
+    /// `Confidence` when a tier's model has no known price. Needs apply
+    /// afterwards and can only move the tier up.
     Cost { miss_penalty: f32 },
 }
 

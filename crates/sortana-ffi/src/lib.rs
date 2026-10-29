@@ -268,14 +268,14 @@ pub struct Suggestion {
     pub needs: Needs,
     /// Metadata of the lineup model behind `model`.
     pub model_info: Option<ModelInfo>,
-    /// Whether the model meets `needs`; `false` when no model within the
-    /// tier limits does, `None` when unknown.
+    /// Whether the model meets `needs`; `false` when neither it nor any
+    /// stronger model up to `max_tier` does, `None` when unknown.
     pub fits: Option<bool>,
     /// True when low confidence moved the tier up one.
     pub bumped: bool,
     /// True when the tier limits moved the tier.
     pub clamped: bool,
-    /// True when the tier moved to a model that meets `needs`.
+    /// True when the tier moved up to a model that meets `needs`.
     pub refit: bool,
     pub rubric_version: String,
 }

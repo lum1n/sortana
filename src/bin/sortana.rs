@@ -134,7 +134,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             (r.bumped, "bumped".to_owned()),
             (r.clamped, "clamped".to_owned()),
             (r.refit, "refit for needs".to_owned()),
-            (r.fits == Some(false), "no model fits the needs".to_owned()),
+            (
+                r.fits == Some(false),
+                "model lacks needs, none stronger has them".to_owned(),
+            ),
         ]
         .into_iter()
         .filter_map(|(on, s)| on.then_some(s))

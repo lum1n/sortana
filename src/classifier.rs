@@ -37,8 +37,8 @@ pub struct Classification {
     pub needs: Needs,
     /// Metadata of `model`, when it is a known lineup model.
     pub info: Option<&'static ModelInfo>,
-    /// Whether `model` meets `needs`: `Some(false)` when no model within
-    /// the tier limits does, `None` when its metadata is unknown.
+    /// Whether `model` meets `needs`: `Some(false)` when neither it nor any
+    /// stronger model within `max_tier` does, `None` when its metadata is unknown.
     pub fits: Option<bool>,
     /// True when `tier` is the configured fallback because the backend failed.
     pub degraded: bool,
@@ -46,7 +46,7 @@ pub struct Classification {
     pub bumped: bool,
     /// True when `min_tier` or `max_tier` moved the tier.
     pub clamped: bool,
-    /// True when the tier moved to a model that meets `needs`.
+    /// True when the tier moved up to a model that meets `needs`.
     pub refit: bool,
     /// True when served from the cache.
     pub cached: bool,
@@ -246,8 +246,7 @@ impl Classifier {
         let needs = a.needs(ctx);
         let cheapest = match cfg.decision {
             Decision::Cost { miss_penalty } => {
-                let pool = self.pool(models, &needs).0;
-                cheapest(probs, models, &pool, miss_penalty)
+                cheapest(probs, models, &self.allowed(), miss_penalty)
             }
             Decision::Confidence => None,
         };
@@ -267,28 +266,19 @@ impl Classifier {
         c
     }
 
-    /// Tiers within the limits whose models meet `needs` (unknown models
-    /// count as meeting them), or every tier within the limits when none
-    /// does; and whether any does.
-    fn pool(&self, models: &ModelMap, needs: &Needs) -> (Vec<Tier>, bool) {
+    /// Tiers within `min_tier..=max_tier`, ascending.
+    fn allowed(&self) -> Vec<Tier> {
         let cfg = &self.inner.config;
-        let range: Vec<Tier> = Tier::ALL
+        Tier::ALL
             .into_iter()
             .filter(|t| (cfg.min_tier..=cfg.max_tier).contains(t))
-            .collect();
-        let fitting: Vec<Tier> = range
-            .iter()
-            .copied()
-            .filter(|&t| fit(models, t, needs) != Some(false))
-            .collect();
-        if fitting.is_empty() {
-            (range, false)
-        } else {
-            (fitting, true)
-        }
+            .collect()
     }
 
-    /// Apply the tier limits and needs to `tier` and build the result.
+    /// Apply the tier limits and needs to `tier` and build the result. Needs
+    /// only move the tier up: to the lowest tier from the limited one up to
+    /// `max_tier` whose model meets them (unknown models count as meeting
+    /// them). When none does, the tier stays and `fits` is `Some(false)`.
     fn route(
         &self,
         tier: Tier,
@@ -300,12 +290,10 @@ impl Classifier {
         let cfg = &self.inner.config;
         let wanted = tier;
         let limited = tier.clamp(cfg.min_tier, cfg.max_tier);
-        let (pool, any_fit) = self.pool(models, &needs);
-        let i = limited.index();
-        let tier = (i..4)
-            .chain((0..i).rev())
-            .map(|i| Tier::ALL[i])
-            .find(|t| pool.contains(t))
+        let tier = Tier::ALL
+            .into_iter()
+            .filter(|&t| t >= limited && t <= cfg.max_tier)
+            .find(|&t| fit(models, t, &needs) != Some(false))
             .unwrap_or(limited);
         let info = models.info(tier);
         Classification {
@@ -318,11 +306,7 @@ impl Classifier {
             reasoning_effort: effort_value(info, effort),
             needs,
             info,
-            fits: if any_fit {
-                fit(models, tier, &needs)
-            } else {
-                Some(false)
-            },
+            fits: fit(models, tier, &needs),
             degraded: false,
             bumped,
             clamped: limited != wanted,
@@ -343,7 +327,8 @@ fn effort_value(info: Option<&ModelInfo>, effort: Option<Effort>) -> Option<&'st
     info?.effort_value(effort?)
 }
 
-/// The tier in `pool` with the lowest expected cost (see [`Decision::Cost`]).
+/// The tier in `pool` with the lowest expected cost (see [`Decision::Cost`]),
+/// before needs are applied.
 /// Ties go to the stronger tier. Tasks harder than the strongest tier in
 /// `pool` count as needing that tier. `None` when a model has no known price.
 fn cheapest(
