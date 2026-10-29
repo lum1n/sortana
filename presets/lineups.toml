@@ -29,6 +29,8 @@ native = ["ministral-14b-2512", "mistral-small-2603", "mistral-medium-2604", "mi
 
 [xai]
 name = "xAI"
+# grok-4.5 to 4.7 share list prices, so only 4.3 (cheaper) and 4.7 (newest) are
+# distinct tiers.
 models = ["grok-4.3", "grok-4.3", "grok-4.7", "grok-4.7"]
 
 [deepseek]
@@ -83,6 +85,8 @@ models = ["command-r7b-12-2024", "command-a-03-2025", "command-a-reasoning-08-20
 
 [amazon]
 name = "Amazon (Nova)"
+# Nova Premier is deprecated; nova-pro stays on top by price (Nova 2 Lite is
+# cheaper per token).
 models = ["nova-micro", "nova-lite", "nova-2-lite", "nova-pro"]
 
 [upstage]

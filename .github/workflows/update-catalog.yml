@@ -1,0 +1,39 @@
+name: update-catalog
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Regenerate src/catalog.rs
+        run: python3 scripts/update-catalog.py
+      - name: Test
+        run: cargo test
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "catalogue unchanged"
+            exit 0
+          fi
+          branch="catalog-$(date +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "chore: refresh models.dev catalogue"
+          git push -u origin "$branch"
+          gh pr create --title "Refresh models.dev catalogue" \
+            --body "Automated run of \`scripts/update-catalog.py\`. Review the lineup picks in \`presets/lineups.toml\` if a model was retired."

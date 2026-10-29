@@ -17,7 +17,7 @@ ByteDance (Seed), StepFun, Tencent (Hy), Cohere, Amazon (Nova) and Upstage
 | `Hard`     | `claude-opus-5-5`     | `gpt-6.1-sol`   | `gemini-3.8-flash`      |
 | `VeryHard` | `claude-fable-5-1`    | `gpt-6-astra`   | `gemini-4-argon`        |
 
-Each lineup resolves to model ids on any of 170 **hosts**: the maker's own API,
+Each lineup resolves to model ids on any of 171 **hosts**: the maker's own API,
 clouds (Amazon Bedrock, Google Vertex, Azure), gateways (OpenRouter, Vercel,
 Cloudflare AI Gateway, OpenCode Zen, OpenCode Go) and inference providers. Ids
 can also come in [opencode](https://opencode.ai)'s `host/model` format. The
@@ -97,7 +97,9 @@ hosts rename and retire models often. To refresh it, edit
 `python3 scripts/update-catalog.py`. It also refreshes each lineup model's
 limits, prices and capabilities. The script fails if a lineup names a
 model that models.dev no longer lists. It skips deprecated models and free
-promotional variants.
+promotional variants. A weekly GitHub Action
+([`update-catalog.yml`](.github/workflows/update-catalog.yml)) runs the script and
+opens a pull request when the catalogue changed.
 
 ### Effort, needs and context
 
