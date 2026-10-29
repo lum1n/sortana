@@ -99,6 +99,19 @@ async fn maps_http_errors() {
     let err = backend.classify(request("x")).await.unwrap_err();
     assert!(matches!(err, Error::Http { status: 401, .. }));
     assert!(!err.is_retryable());
+
+    // Jev's documented overload status.
+    let (url, _server) = serve_once("529 Overloaded", r#"{"detail":"overloaded"}"#).await;
+    let backend = JevBackend::with_client(reqwest::Client::new(), "k").base_url(url);
+    let err = backend.classify(request("x")).await.unwrap_err();
+    assert!(matches!(err, Error::Http { status: 529, .. }));
+    assert!(err.is_retryable());
+
+    // Validation failures (400, 413, 415, 422) are permanent.
+    let (url, _server) = serve_once("422 Unprocessable Entity", r#"{"detail":[]}"#).await;
+    let backend = JevBackend::with_client(reqwest::Client::new(), "k").base_url(url);
+    let err = backend.classify(request("x")).await.unwrap_err();
+    assert!(!err.is_retryable());
 }
 
 #[tokio::test]
