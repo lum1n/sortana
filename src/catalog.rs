@@ -4,7 +4,7 @@
 use crate::models::{Host, Lineup, ModelInfo};
 
 /// Date the catalogue was generated from models.dev.
-pub const CATALOG_DATE: &str = "2026-10-29";
+pub const CATALOG_DATE: &str = "2026-10-30";
 
 pub(crate) static LINEUPS: &[Lineup] = &[
     Lineup {
@@ -1012,12 +1012,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "amazon/nova-2-lite",
-        name: "Nova 2 Lite (US)",
+        name: "Nova 2 Lite (EU)",
         context: 1000000,
         max_input: 1000000,
         max_output: 65535,
-        input_cost: Some(0.33f32),
-        output_cost: Some(2.75f32),
+        input_cost: Some(0.374f32),
+        output_cost: Some(3.157f32),
         vision: true,
         pdf: true,
         tools: true,
@@ -1026,12 +1026,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "amazon/nova-lite",
-        name: "Nova Lite (US)",
+        name: "Nova Lite (CA)",
         context: 300000,
         max_input: 300000,
         max_output: 10000,
-        input_cost: Some(0.06f32),
-        output_cost: Some(0.24f32),
+        input_cost: Some(0.064f32),
+        output_cost: Some(0.256f32),
         vision: true,
         pdf: true,
         tools: true,
@@ -1306,17 +1306,17 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "meta/muse-spark-1.3",
-        name: "Muse Spark 1.3 Contributor",
+        name: "Muse Spark 1.3",
         context: 1048576,
         max_input: 1048576,
         max_output: 131072,
-        input_cost: Some(0.1f32),
-        output_cost: Some(0.2f32),
+        input_cost: Some(1.25f32),
+        output_cost: Some(4.25f32),
         vision: true,
         pdf: true,
         tools: true,
         reasoning: true,
-        efforts: &["minimal", "low", "medium", "high", "xhigh"],
+        efforts: &["minimal", "low", "medium", "high", "xhigh", "max"],
     },
     ModelInfo {
         id: "meta/muse-wonder-1.0",
@@ -1754,12 +1754,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "zhipuai/glm-5.3-flash",
-        name: "GLM-5.3-Flash",
+        name: "GLM-5.3-FlashX",
         context: 1000000,
         max_input: 1000000,
         max_output: 131072,
-        input_cost: Some(0.11952f32),
-        output_cost: Some(0.41831f32),
+        input_cost: Some(0.29879f32),
+        output_cost: Some(1.04577f32),
         vision: true,
         pdf: true,
         tools: true,
@@ -3558,6 +3558,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("llmgateway", "openai/gpt-6.1-sol", "gpt-6.1-sol"),
     ("llmgateway", "openai/gpt-6.1-terra", "gpt-6.1-terra"),
     ("llmgateway", "stepfun/step-3.7-flash", "step-3.7-flash"),
+    ("llmgateway", "stepfun/step-5-preview", "step-5-preview"),
     ("llmgateway", "tencent/hy3", "hy3"),
     ("llmgateway", "tencent/hy4-preview", "hy4-preview"),
     ("llmgateway", "xai/grok-4.3", "grok-4-3"),
@@ -4345,7 +4346,6 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "stepfun/step-5-preview",
         "stepfun-ai/step-5-preview",
     ),
-    ("nvidia", "zhipuai/glm-5.3", "z-ai/glm-5.3"),
     ("nvidia", "zhipuai/glm-5.3-flash", "z-ai/glm-5.3-flash"),
     ("oci", "xai/grok-4.3", "xai.grok-4.3"),
     ("ofox", "alibaba/qwen3.7-plus", "qwen/qwen3.7-plus"),
@@ -5008,11 +5008,6 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("sap-ai-core", "openai/gpt-6-astra", "gpt-6-astra"),
     ("sap-ai-core", "openai/gpt-6-luna", "gpt-6-luna"),
     ("sap-ai-core", "openai/gpt-6.1-sol", "gpt-6.1-sol"),
-    (
-        "scaleway",
-        "deepseek/deepseek-v4.1-flash",
-        "deepseek-v4.1-flash",
-    ),
     ("scaleway", "zhipuai/glm-5.3", "glm-5.3"),
     ("scnet-token-plan", "alibaba/qwen3.8-flash", "Qwen3.8-Flash"),
     ("scnet-token-plan", "alibaba/qwen3.8-max", "Qwen3.8-Max"),
