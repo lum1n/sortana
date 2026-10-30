@@ -36,7 +36,9 @@ pub enum Error {
 
 impl Error {
     /// Whether retrying the same request may succeed: timeouts, transport errors,
-    /// HTTP 408/429/5xx, and `Backend` errors marked retryable.
+    /// HTTP 408/429/5xx (Jev documents 429 and 529 as its back-off statuses and
+    /// 400/401/413/415/422 as permanent; this matches the Python SDK's default
+    /// `RetryPolicy`), and `Backend` errors marked retryable.
     pub fn is_retryable(&self) -> bool {
         match self {
             Error::Timeout(_) | Error::Transport(_) => true,
