@@ -674,6 +674,39 @@ mod tests {
     }
 
     #[test]
+    fn normalize_drops_unusable_extra_answers() {
+        let tiers = TierProbs {
+            probabilities: [1.0, 0.0, 0.0, 0.0],
+            confidence: 1.0,
+        };
+        let a = normalize(Assessment {
+            tiers,
+            effort: Some([0.0; 3]),
+            vision: Some(1.5),
+            tools: Some(f32::NAN),
+        })
+        .unwrap();
+        assert_eq!((a.effort, a.vision, a.tools), (None, None, None));
+        for bad in [[f32::NAN, 1.0, 0.0], [-1.0, 1.0, 0.0]] {
+            let a = normalize(Assessment {
+                effort: Some(bad),
+                ..tiers.into()
+            })
+            .unwrap();
+            assert_eq!(a.effort, None, "{bad:?}");
+        }
+        let a = normalize(Assessment {
+            tiers,
+            effort: Some([0.1, 0.2, 0.7]),
+            vision: Some(0.0),
+            tools: Some(1.0),
+        })
+        .unwrap();
+        assert_eq!(a.effort, Some([0.1, 0.2, 0.7]));
+        assert_eq!((a.vision, a.tools), (Some(0.0), Some(1.0)));
+    }
+
+    #[test]
     fn backoff_doubles() {
         let b = Duration::from_millis(100);
         assert_eq!(backoff(b, 0), b);
