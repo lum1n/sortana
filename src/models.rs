@@ -461,6 +461,35 @@ mod tests {
     }
 
     #[test]
+    fn catalogue_references_resolve() {
+        // The catalogue is regenerated weekly: dropped models or hosts must
+        // not leave dangling rows behind.
+        for (host, canonical, id) in HOST_MODELS {
+            assert!(Host::get(host).is_some(), "unknown host {host}");
+            assert!(
+                ModelInfo::get(canonical).is_some(),
+                "{host} lists {canonical}, which is not in MODELS"
+            );
+            assert!(!id.is_empty(), "{host} {canonical}");
+            assert_eq!(host_model_id(host, canonical), Some(*id));
+        }
+        for l in LINEUPS {
+            for c in l.canonical {
+                assert!(ModelInfo::get(c).is_some(), "{} uses unknown {c}", l.id);
+            }
+        }
+        for m in MODELS {
+            assert!(m.context >= m.max_input, "{}", m.id);
+            assert!(m.reasoning || m.efforts.is_empty(), "{}", m.id);
+            assert!(
+                m.efforts.iter().all(|e| EFFORT_SCALE.contains(e)),
+                "{} has an effort outside the scale",
+                m.id
+            );
+        }
+    }
+
+    #[test]
     fn presets_and_aliases() {
         assert_eq!(ModelMap::default().get(Tier::Simple), "claude-haiku-5-5");
         assert_eq!(ModelMap::openai().get(Tier::VeryHard), "gpt-6-astra");
