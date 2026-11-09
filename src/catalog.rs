@@ -4,7 +4,7 @@
 use crate::models::{Host, Lineup, ModelInfo};
 
 /// Date the catalogue was generated from models.dev.
-pub const CATALOG_DATE: &str = "2026-10-30";
+pub const CATALOG_DATE: &str = "2026-11-09";
 
 pub(crate) static LINEUPS: &[Lineup] = &[
     Lineup {
@@ -921,6 +921,10 @@ pub(crate) static HOSTS: &[Host] = &[
         name: "Wallaby",
     },
     Host {
+        id: "wally",
+        name: "Wally",
+    },
+    Host {
         id: "wandb",
         name: "CoreWeave",
     },
@@ -1012,12 +1016,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "amazon/nova-2-lite",
-        name: "Nova 2 Lite (EU)",
+        name: "Nova 2 Lite (JP)",
         context: 1000000,
         max_input: 1000000,
         max_output: 65535,
-        input_cost: Some(0.374f32),
-        output_cost: Some(3.157f32),
+        input_cost: Some(0.396f32),
+        output_cost: Some(3.311f32),
         vision: true,
         pdf: true,
         tools: true,
@@ -1026,12 +1030,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "amazon/nova-lite",
-        name: "Nova Lite (CA)",
+        name: "Nova Lite (APAC)",
         context: 300000,
         max_input: 300000,
         max_output: 10000,
-        input_cost: Some(0.064f32),
-        output_cost: Some(0.256f32),
+        input_cost: Some(0.063f32),
+        output_cost: Some(0.252f32),
         vision: true,
         pdf: true,
         tools: true,
@@ -1040,12 +1044,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "amazon/nova-micro",
-        name: "Nova Micro (EU)",
+        name: "Nova Micro",
         context: 128000,
         max_input: 128000,
         max_output: 10000,
-        input_cost: Some(0.04f32),
-        output_cost: Some(0.16f32),
+        input_cost: Some(0.035f32),
+        output_cost: Some(0.14f32),
         vision: false,
         pdf: false,
         tools: true,
@@ -1054,12 +1058,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "amazon/nova-pro",
-        name: "Nova Pro (APAC)",
+        name: "Nova Pro",
         context: 300000,
         max_input: 300000,
         max_output: 10000,
-        input_cost: Some(0.84f32),
-        output_cost: Some(3.36f32),
+        input_cost: Some(0.8f32),
+        output_cost: Some(3.2f32),
         vision: true,
         pdf: true,
         tools: true,
@@ -1153,8 +1157,8 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     ModelInfo {
         id: "bytedance-seed/seed-2.1-turbo",
         name: "Seed 2.1 Turbo",
-        context: 256000,
-        max_input: 256000,
+        context: 229093,
+        max_input: 229093,
         max_output: 65536,
         input_cost: Some(0.63f32),
         output_cost: Some(3.13f32),
@@ -1306,17 +1310,17 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "meta/muse-spark-1.3",
-        name: "Muse Spark 1.3",
+        name: "Muse Spark 1.3 Contributor",
         context: 1048576,
         max_input: 1048576,
         max_output: 131072,
-        input_cost: Some(1.25f32),
-        output_cost: Some(4.25f32),
+        input_cost: Some(0.1f32),
+        output_cost: Some(0.2f32),
         vision: true,
         pdf: true,
         tools: true,
         reasoning: true,
-        efforts: &["minimal", "low", "medium", "high", "xhigh", "max"],
+        efforts: &["minimal", "low", "medium", "high", "xhigh"],
     },
     ModelInfo {
         id: "meta/muse-wonder-1.0",
@@ -1376,17 +1380,17 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "mistral/mistral-large-4",
-        name: "Mistral Large 4",
+        name: "Mistral Large 4.0.8",
         context: 1048576,
         max_input: 1048576,
         max_output: 262144,
-        input_cost: Some(1.36f32),
-        output_cost: Some(4.18f32),
+        input_cost: Some(0.7f32),
+        output_cost: Some(2.1f32),
         vision: true,
         pdf: true,
         tools: true,
         reasoning: true,
-        efforts: &["none", "high"],
+        efforts: &["low", "medium", "high"],
     },
     ModelInfo {
         id: "mistral/mistral-medium-3-5",
@@ -1432,12 +1436,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "moonshotai/kimi-k2.7-code",
-        name: "Kimi K2.7 Code",
+        name: "Kimi K2.7 Code HighSpeed",
         context: 262144,
         max_input: 262144,
         max_output: 262144,
-        input_cost: Some(0.95f32),
-        output_cost: Some(4.0f32),
+        input_cost: Some(1.9f32),
+        output_cost: Some(8.0f32),
         vision: true,
         pdf: false,
         tools: true,
@@ -1460,12 +1464,12 @@ pub(crate) static MODELS: &[ModelInfo] = &[
     },
     ModelInfo {
         id: "moonshotai/kimi-k3.1-pro",
-        name: "Kimi K3.1 Pro Highspeed",
+        name: "Kimi K3.1 Pro",
         context: 1048576,
         max_input: 1048576,
         max_output: 1048576,
-        input_cost: Some(4.0f32),
-        output_cost: Some(20.0f32),
+        input_cost: Some(2.0f32),
+        output_cost: Some(10.0f32),
         vision: true,
         pdf: false,
         tools: true,
@@ -1833,12 +1837,12 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "deepseek/deepseek-v4-pro",
         "deepseek-ai/deepseek-v4-pro",
     ),
+    ("aiand", "moonshotai/kimi-k3", "moonshotai/kimi-k3"),
     (
         "aiand",
-        "deepseek/deepseek-v4.1-flash",
-        "deepseek-ai/deepseek-v4.1-flash",
+        "moonshotai/kimi-k3.1-pro",
+        "moonshotai/kimi-k3.1-pro",
     ),
-    ("aiand", "moonshotai/kimi-k3", "moonshotai/kimi-k3"),
     ("aiand", "zhipuai/glm-5.3", "zai-org/glm-5.3"),
     ("aiand", "zhipuai/glm-5.3-flash", "zai-org/glm-5.3-flash"),
     ("aihubmix", "alibaba/qwen3.7-plus", "qwen3.7-plus"),
@@ -2275,6 +2279,11 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("baseten", "moonshotai/kimi-k3", "moonshotai/Kimi-K3"),
     (
         "baseten",
+        "moonshotai/kimi-k3.1-pro",
+        "moonshotai/Kimi-K3.1-Pro",
+    ),
+    (
+        "baseten",
         "nvidia/nemotron-3-ultra-550b-a55b",
         "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
     ),
@@ -2459,23 +2468,8 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("cloudflare-ai-gateway", "xai/grok-4.7", "xai/grok-4.7"),
     (
         "cloudflare-workers-ai",
-        "moonshotai/kimi-k2.6",
-        "@cf/moonshotai/kimi-k2.6",
-    ),
-    (
-        "cloudflare-workers-ai",
-        "moonshotai/kimi-k2.7-code",
-        "@cf/moonshotai/kimi-k2.7-code",
-    ),
-    (
-        "cloudflare-workers-ai",
         "zhipuai/glm-5.3",
         "@cf/zai-org/glm-5.3",
-    ),
-    (
-        "cloudflare-workers-ai",
-        "zhipuai/glm-5.3-flash",
-        "@cf/zai-org/glm-5.3-flash",
     ),
     ("cohere", "cohere/command-a-03-2025", "command-a-03-2025"),
     (
@@ -2749,6 +2743,11 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("deepinfra", "minimax/MiniMax-M3", "MiniMaxAI/MiniMax-M3"),
     ("deepinfra", "moonshotai/kimi-k2.6", "moonshotai/Kimi-K2.6"),
     ("deepinfra", "moonshotai/kimi-k3", "moonshotai/Kimi-K3"),
+    (
+        "deepinfra",
+        "moonshotai/kimi-k3.1-pro",
+        "moonshotai/Kimi-K3.1-Pro",
+    ),
     ("deepinfra", "tencent/hy4-preview", "tencent/Hy4-preview"),
     (
         "deepinfra",
@@ -2819,6 +2818,11 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("digitalocean", "openai/gpt-6-astra", "openai-gpt-6-astra"),
     ("digitalocean", "openai/gpt-6-luna", "openai-gpt-6-luna"),
     ("digitalocean", "openai/gpt-6.1-sol", "openai-gpt-6-1-sol"),
+    (
+        "digitalocean",
+        "openai/gpt-6.1-terra",
+        "openai-gpt-6.1-terra",
+    ),
     ("digitalocean", "zhipuai/glm-5.3", "glm-5.3"),
     ("digitalocean", "zhipuai/glm-5.3-flash", "glm-5.3-flash"),
     ("ebcloud", "deepseek/deepseek-v4-pro", "DeepSeek-V4-Pro"),
@@ -2991,6 +2995,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("empiriolabs", "moonshotai/kimi-k2.6", "kimi-k2-6"),
     ("empiriolabs", "moonshotai/kimi-k2.7-code", "kimi-k2-7-code"),
     ("empiriolabs", "moonshotai/kimi-k3", "kimi-k3"),
+    ("empiriolabs", "moonshotai/kimi-k3.1-pro", "kimi-k3-1-pro"),
     ("empiriolabs", "stepfun/step-3.5-flash", "step-3-5-flash"),
     ("empiriolabs", "stepfun/step-3.7-flash", "step-3-7-flash"),
     ("empiriolabs", "stepfun/step-5-preview", "step-5-preview"),
@@ -3040,6 +3045,11 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "fireworks-ai",
         "moonshotai/kimi-k3",
         "accounts/fireworks/models/kimi-k3",
+    ),
+    (
+        "fireworks-ai",
+        "moonshotai/kimi-k3.1-pro",
+        "accounts/fireworks/models/kimi-k3p1-pro",
     ),
     (
         "fireworks-ai",
@@ -3238,17 +3248,11 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "zhipuai/glm-5.3-flash",
         "zai-org/GLM-5.3-Flash",
     ),
-    ("hyper", "alibaba/qwen3.7-plus", "qwen3.7-plus"),
     ("hyper", "alibaba/qwen3.8-flash", "qwen3.8-flash"),
     ("hyper", "alibaba/qwen3.8-max", "qwen3.8-max"),
-    (
-        "hyper",
-        "deepseek/deepseek-v4.1-flash",
-        "deepseek-v4.1-flash",
-    ),
     ("hyper", "minimax/MiniMax-M3", "minimax-m3"),
-    ("hyper", "moonshotai/kimi-k2.7-code", "kimi-k2.7-code"),
     ("hyper", "moonshotai/kimi-k3", "kimi-k3"),
+    ("hyper", "moonshotai/kimi-k3.1-pro", "kimi-k3.1-pro"),
     ("hyper", "zhipuai/glm-5.3", "glm-5.3"),
     ("hyper", "zhipuai/glm-5.3-flash", "glm-5.3-flash"),
     ("impossibl", "alibaba/qwen3.7-plus", "qwen/qwen3.7-plus"),
@@ -3646,7 +3650,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     (
         "llmgateway-providers",
         "minimax/MiniMax-M3",
-        "minimax/minimax-m3",
+        "novita/minimax-m3",
     ),
     (
         "llmgateway-providers",
@@ -3686,12 +3690,12 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     (
         "llmgateway-providers",
         "moonshotai/kimi-k3",
-        "novita/kimi-k3",
+        "baidu/kimi-k3",
     ),
     (
         "llmgateway-providers",
         "moonshotai/kimi-k3.1-pro",
-        "moonshot/kimi-k3.1-pro",
+        "runpod/kimi-k3.1-pro",
     ),
     (
         "llmgateway-providers",
@@ -3711,7 +3715,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     (
         "llmgateway-providers",
         "openai/gpt-6.1-terra",
-        "openai/gpt-6.1-terra",
+        "azure/gpt-6.1-terra",
     ),
     (
         "llmgateway-providers",
@@ -3962,11 +3966,6 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ),
     ("modelis", "alibaba/qwen3.7-plus", "qwen/qwen3.7-plus"),
     ("modelis", "deepseek/deepseek-v4-pro", "deepseek-v4-pro"),
-    (
-        "modular",
-        "deepseek/deepseek-v4.1-flash",
-        "deepseek/deepseek-v4.1-flash",
-    ),
     ("modular", "minimax/MiniMax-M3", "minimax/minimax-m3"),
     (
         "modular",
@@ -3987,6 +3986,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("moonshotai-cn", "moonshotai/kimi-k3.1-pro", "kimi-k3.1-pro"),
     ("morph", "deepseek/deepseek-v4.1-flash", "morph-dsv41flash"),
     ("morph", "moonshotai/kimi-k3", "morph-kimik3"),
+    ("morph", "moonshotai/kimi-k3.1-pro", "morph-kimik31"),
     ("morph", "zhipuai/glm-5.3", "morph-glm53-744b"),
     ("morph", "zhipuai/glm-5.3-flash", "morph-glm53flash"),
     ("munito", "zhipuai/glm-5.3-flash", "zai-org/glm-5.3-flash"),
@@ -4095,7 +4095,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     (
         "nano-gpt",
         "moonshotai/kimi-k2.7-code",
-        "TEE/kimi-k2.7-code",
+        "moonshotai/kimi-k2.7-code",
     ),
     ("nano-gpt", "moonshotai/kimi-k3", "TEE/kimi-k3"),
     (
@@ -4111,7 +4111,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     (
         "nano-gpt",
         "nvidia/nemotron-3.5-lightning",
-        "TEE/nemotron-3.5-lightning",
+        "nvidia/nemotron-3.5-lightning",
     ),
     (
         "nano-gpt",
@@ -4450,11 +4450,14 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "kimi-k2.7-code",
     ),
     ("ollama-cloud", "moonshotai/kimi-k3", "kimi-k3"),
+    ("ollama-cloud", "moonshotai/kimi-k3.1-pro", "kimi-k3.1-pro"),
     (
         "ollama-cloud",
         "nvidia/nemotron-3-ultra-550b-a55b",
         "nemotron-3-ultra",
     ),
+    ("ollama-cloud", "xiaomi/mimo-v2.6-flash", "mimo-v2.6-flash"),
+    ("ollama-cloud", "xiaomi/mimo-v2.6-pro", "mimo-v2.6-pro"),
     ("ollama-cloud", "zhipuai/glm-5.3", "glm-5.3"),
     ("ollama-cloud", "zhipuai/glm-5.3-flash", "glm-5.3-flash"),
     ("openai", "openai/gpt-6-astra", "gpt-6-astra"),
@@ -5086,6 +5089,12 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "stepfun-ai/Step-3.5-Flash",
     ),
     ("siliconflow-cn", "zhipuai/glm-5.1", "Pro/zai-org/GLM-5.1"),
+    ("siliconflow-cn", "zhipuai/glm-5.3", "zai-org/GLM-5.3"),
+    (
+        "siliconflow-cn",
+        "zhipuai/glm-5.3-flash",
+        "zai-org/GLM-5.3-Flash",
+    ),
     (
         "standardcompute",
         "alibaba/qwen3.7-plus",
@@ -5345,6 +5354,7 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
         "deepseek-v4-1-flash",
     ),
     ("tinfoil", "moonshotai/kimi-k3", "kimi-k3"),
+    ("tinfoil", "moonshotai/kimi-k3.1-pro", "kimi-k3-1-pro"),
     ("tinfoil", "zhipuai/glm-5.3", "glm-5-3"),
     (
         "togetherai",
@@ -5353,6 +5363,11 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ),
     ("togetherai", "minimax/MiniMax-M3", "MiniMaxAI/MiniMax-M3"),
     ("togetherai", "moonshotai/kimi-k3", "moonshotai/Kimi-K3"),
+    (
+        "togetherai",
+        "moonshotai/kimi-k3.1-pro",
+        "moonshotai/Kimi-K3.1-Pro",
+    ),
     (
         "togetherai",
         "nvidia/nemotron-3.5-super-vl-120b-a12b",
@@ -5411,11 +5426,6 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("venice", "anthropic/claude-sonnet-5-5", "claude-sonnet-5-5"),
     ("venice", "bytedance-seed/seed-2.1-turbo", "seed-2-1-turbo"),
     ("venice", "deepseek/deepseek-v4-pro", "deepseek-v4-pro"),
-    (
-        "venice",
-        "deepseek/deepseek-v4.1-flash",
-        "deepseek-v4-1-flash",
-    ),
     (
         "venice",
         "google/gemini-3.5-flash-lite",
@@ -5633,6 +5643,16 @@ pub(crate) static HOST_MODELS: &[(&str, &str, &str)] = &[
     ("vultr", "zhipuai/glm-5.3", "glm-5.3"),
     ("vultr", "zhipuai/glm-5.3-flash", "glm-5.3-flash"),
     ("wallaby", "moonshotai/kimi-k3", "moonshotai/kimi-k3"),
+    ("wally", "deepseek/deepseek-v4-pro", "deepseek-v4-pro-fast"),
+    (
+        "wally",
+        "deepseek/deepseek-v4.1-flash",
+        "deepseek-v4.1-flash",
+    ),
+    ("wally", "minimax/MiniMax-M3", "minimax-m3"),
+    ("wally", "moonshotai/kimi-k3", "kimi-k3"),
+    ("wally", "zhipuai/glm-5.3", "glm-5.3-fast"),
+    ("wally", "zhipuai/glm-5.3-flash", "glm-5.3-flash"),
     (
         "wandb",
         "deepseek/deepseek-v4.1-flash",
